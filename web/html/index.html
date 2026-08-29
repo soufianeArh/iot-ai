@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device Console</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 900px; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  .health { font-size: .85rem; padding: .35rem .6rem; border-radius: 4px; display: inline-block; }
+  .up { background: #d6f5d6; color: #14532d; }
+  .down { background: #f8d7da; color: #7f1d1d; }
+  form { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0; }
+  input, select, button { padding: .45rem .6rem; font: inherit; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border: 1px solid #ccc; padding: .45rem .6rem; text-align: left; font-size: .9rem; }
+  th { background: rgba(127,127,127,.12); }
+  #msg { margin-top: .8rem; font-size: .85rem; white-space: pre-wrap; }
+  .err { color: #b91c1c; }
+</style>
+</head>
+<body>
+  <h1>Device Console <span id="health" class="health">checking…</span></h1>
+  <p style="font-size:.85rem;opacity:.75">Served by nginx. All calls go to <code>/api/*</code> — no port number, no CORS.</p>
+
+  <form id="createForm">
+    <input name="name"       placeholder="name"       required>
+    <input name="deviceCode" placeholder="deviceCode" required>
+    <input name="productKey" placeholder="productKey" required>
+    <select name="status">
+      <option value="OFFLINE">OFFLINE</option>
+      <option value="ONLINE">ONLINE</option>
+    </select>
+    <button type="submit">Add device</button>
+  </form>
+
+  <div id="msg"></div>
+
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Code</th><th>Product Key</th><th>Status</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody id="rows"><tr><td colspan="7">loading…</td></tr></tbody>
+  </table>
+
+<script>
+const msg = document.getElementById('msg');
+const rows = document.getElementById('rows');
+
+function say(text, isError) {
+  msg.textContent = text;
+  msg.className = isError ? 'err' : '';
+}
+
+async function health() {
+  const el = document.getElementById('health');
+  try {
+    const r = await fetch('/actuator/health');
+    const j = await r.json();
+    el.textContent = j.status;
+    el.className = 'health ' + (j.status === 'UP' ? 'up' : 'down');
+  } catch (e) {
+    el.textContent = 'unreachable';
+    el.className = 'health down';
+  }
+}
+
+async function load() {
+  try {
+    const r = await fetch('/api/devices');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const list = await r.json();
+    if (!list.length) {
+      rows.innerHTML = '<tr><td colspan="7">no devices yet</td></tr>';
+      return;
+    }
+    rows.innerHTML = list.map(d => `
+      <tr>
+        <td>${d.id}</td>
+        <td>${d.name}</td>
+        <td>${d.deviceCode}</td>
+        <td>${d.productKey}</td>
+        <td>${d.status}</td>
+        <td>${d.createdAt ? new Date(d.createdAt).toLocaleString() : ''}</td>
+        <td><button data-id="${d.id}" class="del">delete</button></td>
+      </tr>`).join('');
+  } catch (e) {
+    rows.innerHTML = `<tr><td colspan="7" class="err">failed to load: ${e.message}</td></tr>`;
+  }
+}
+
+document.getElementById('createForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target).entries());
+  const r = await fetch('/api/devices', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const text = await r.text();
+  if (r.ok) {
+    say('created (' + r.status + ')');
+    e.target.reset();
+  } else {
+    say(r.status + ' -> ' + text, true);
+  }
+  load();
+});
+
+rows.addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('del')) return;
+  const r = await fetch('/api/devices/' + e.target.dataset.id, { method: 'DELETE' });
+  say(r.ok ? 'deleted (204)' : 'delete failed ' + r.status, !r.ok);
+  load();
+});
+
+health();
+load();
+</script>
+</body>
+</html>

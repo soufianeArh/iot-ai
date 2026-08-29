@@ -1,0 +1,106 @@
+services:
+  # PostgresSQL Server
+  PostgresSQL:
+    image: postgres:18
+    container_name: postgres-server
+    restart: always
+    ports:
+      - "0.0.0.0:5434:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data:rw
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - easyaiot-network
+  # Redis Server
+  Redis:
+    image: redis:7.4.8
+    container_name: redis-server
+    restart: always
+    ports:
+      - "0.0.0.0:6379:6379"
+    command: >
+      redis-server
+      --save 60 1000
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --timeout 300
+    volumes:
+      - redisdata:/data:rw
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20M"
+        max-file: "10"
+    networks:
+      - easyaiot-network
+  # Device Service (Spring Boot) - built from ../device-service
+  device-service:
+    build:
+      context: ../device-service
+    container_name: device-service
+    restart: always
+    depends_on:
+      PostgresSQL:
+        condition: service_healthy
+    # Phase 3: no host port. Reachable only inside the network, via nginx.
+    expose:
+      - "8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://PostgresSQL:5432/${POSTGRES_DB}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - easyaiot-network
+
+  # Nginx - the single front door (Phase 3)
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: nginx
+    restart: always
+    depends_on:
+      device-service:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - ../web/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../web/html:/usr/share/nginx/html:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - easyaiot-network
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  easyaiot-network:

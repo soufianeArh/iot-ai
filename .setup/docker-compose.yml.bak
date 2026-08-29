@@ -1,0 +1,60 @@
+services:
+  # PostgresSQL Server
+  PostgresSQL:
+    image: postgres:18
+    container_name: postgres-server
+    restart: always
+    ports:
+      - "0.0.0.0:5434:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - redisdata:/var/lib/postgresql/data:rw
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - easyaiot-network
+  # Redis Server
+  Redis:
+    image: redis:7.4.8
+    container_name: redis-server
+    restart: always
+    ports:
+      - "0.0.0.0:6379:6379"
+    command: >
+      redis-server
+      --save 60 1000
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD}
+      --timeout 300
+    volumes:
+      - redisdata:/data:rw
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli -a ${REDIS_PASSWORD} ping | grep PONG || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20M"
+        max-file: "10"
+    networks:
+      - easyaiot-network
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  easyaiot-network:
