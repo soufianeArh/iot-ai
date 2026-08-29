@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cameras</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1000px; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  nav { font-size: .85rem; margin-bottom: 1rem; }
+  nav a { margin-right: 1rem; }
+  form { display: flex; gap: .5rem; flex-wrap: wrap; margin: 1rem 0; }
+  input, button { padding: .45rem .6rem; font: inherit; }
+  input[name=rtspUrl] { flex: 1; min-width: 320px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  th, td { border: 1px solid #ccc; padding: .45rem .6rem; text-align: left; font-size: .85rem; }
+  th { background: rgba(127,127,127,.12); }
+  .ok { color: #15803d; font-weight: 600; }
+  .bad { color: #b91c1c; font-weight: 600; }
+  #msg { margin-top: .8rem; font-size: .85rem; white-space: pre-wrap; }
+  .err { color: #b91c1c; }
+  #playerBox { display: none; margin-top: 1rem; padding: .8rem; border: 1px solid #ccc; border-radius: 6px; }
+  video { width: 100%; max-width: 720px; background: #000; border-radius: 4px; }
+  .hint { font-size: .8rem; opacity: .7; margin-top: .4rem; }
+</style>
+</head>
+<body>
+  <h1>Cameras</h1>
+  <nav><a href="/">&larr; devices</a><span style="opacity:.6">video-service (Python) + MediaMTX</span></nav>
+
+  <form id="createForm">
+    <input name="name" placeholder="name" required>
+    <input name="rtspUrl" placeholder="rtsp://host:8554/path" required>
+    <input name="deviceCode" placeholder="deviceCode (optional)">
+    <button type="submit">Register</button>
+  </form>
+  <div class="hint">Registration runs ffprobe against the URL and refuses anything it cannot open. It can take up to 12s.</div>
+
+  <div id="msg"></div>
+
+  <div id="playerBox">
+    <strong id="playerTitle"></strong>
+    <div style="margin:.5rem 0">
+      <button id="btnHls">HLS (~3s delay)</button>
+      <button id="btnWebrtc">WebRTC (sub-second)</button>
+      <button id="btnStop">stop</button>
+    </div>
+    <video id="player" controls autoplay muted playsinline></video>
+    <div class="hint" id="playerHint"></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Name</th><th>Codec</th><th>Size</th><th>FPS</th><th>Probe</th><th>Stream</th><th></th></tr>
+    </thead>
+    <tbody id="rows"><tr><td colspan="8">loading...</td></tr></tbody>
+  </table>
+
+<script>
+const msg = document.getElementById('msg');
+const rows = document.getElementById('rows');
+const video = document.getElementById('player');
+const playerBox = document.getElementById('playerBox');
+let hls = null, pc = null, current = null;
+
+function say(t, bad) {
+  msg.textContent = t;
+  msg.className = bad ? 'err' : '';
+}
+
+function teardown() {
+  if (hls) { hls.destroy(); hls = null; }
+  if (pc) { pc.close(); pc = null; }
+  video.srcObject = null;
+  video.removeAttribute('src');
+  video.load();
+}
+
+async function load() {
+  const r = await fetch('/video/camera');
+  const list = await r.json();
+  if (!list.length) {
+    rows.innerHTML = '<tr><td colspan="8">no cameras yet</td></tr>';
+    return;
+  }
+
+  // Stream state lives in MediaMTX, not in our database. Ask per camera.
+  const states = await Promise.all(list.map(function (c) {
+    return fetch('/video/camera/' + c.id + '/stream')
+      .then(function (r) { return r.json(); })
+      .catch(function () { return {}; });
+  }));
+
+  const html = list.map(function (c, i) {
+    const s = states[i] || {};
+    const probeCls = c.status === 'REACHABLE' ? 'ok' : 'bad';
+    let streamCell = '<span class="bad">off</span>';
+    if (s.configured) streamCell = s.ready ? '<span class="ok">live</span>' : 'idle';
+    return '<tr>' +
+      '<td>' + c.id + '</td>' +
+      '<td>' + c.name + '</td>' +
+      '<td>' + (c.codec || '') + '</td>' +
+      '<td>' + (c.width || '') + 'x' + (c.height || '') + '</td>' +
+      '<td>' + (c.fps || '') + '</td>' +
+      '<td class="' + probeCls + '">' + c.status + '</td>' +
+      '<td>' + streamCell + '</td>' +
+      '<td>' +
+        '<button data-id="' + c.id + '" data-name="' + c.name + '" class="watch">watch</button> ' +
+        '<button data-id="' + c.id + '" class="reprobe">re-probe</button> ' +
+        '<button data-id="' + c.id + '" class="del">delete</button>' +
+      '</td></tr>';
+  }).join('');
+
+  // Only touch the DOM when something actually changed. Reassigning innerHTML
+  // on every poll destroys and recreates the buttons, and a click whose
+  // mousedown/mouseup straddle that swap never fires a click event - the
+  // button visibly depresses and nothing happens.
+  if (html !== rows.innerHTML) rows.innerHTML = html;
+}
+
+async function playHls(id) {
+  teardown();
+  const url = '/hls/cam' + id + '/index.m3u8';
+  // Cold start: the stream is pulled on demand, so the FIRST request has to wake
+  // MediaMTX, which then dials the camera over RTSP. Measured at ~21s here, while
+  // hls.js gives up after 10s and shows nothing. So warm it with a plain fetch
+  // first - fetch has no such timeout - and only then hand the URL to the player.
+  const hint = document.getElementById('playerHint');
+  hint.textContent = 'Starting stream... the first play can take ~20s while the camera connection is opened on demand.';
+  try {
+    // Make sure the media server still knows this camera. It keeps paths in
+    // memory only, so a restart of MediaMTX wipes them while the database keeps
+    // the cameras. This POST is idempotent and cheap, and makes every watch
+    // self-healing rather than failing with "path not configured".
+    await fetch('/video/camera/' + id + '/stream', { method: 'POST' });
+
+    const r = await fetch(url, { credentials: 'same-origin' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+  } catch (e) {
+    hint.textContent = '';
+    say('could not start the stream: ' + e.message, true);
+    return;
+  }
+  hint.textContent =
+    'HLS: the browser downloads short .mp4 parts listed in a .m3u8 playlist. Works everywhere, a few seconds behind live.';
+
+  if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    video.src = url;                        // Safari plays HLS natively
+    return;
+  }
+  if (!window.Hls || !Hls.isSupported()) {
+    say('this browser cannot play HLS', true);
+    return;
+  }
+
+  hls = new Hls({ lowLatencyMode: true });
+  hls.loadSource(url);
+  hls.attachMedia(video);
+  // The autoplay attribute alone is not enough once hls.js attaches the media
+  // source: play() must be called explicitly. It is allowed here because the
+  // element is muted - browsers only block autoplay with sound.
+  hls.on(Hls.Events.MANIFEST_PARSED, function () {
+    video.play().catch(function (e) { say('press play: ' + e.message); });
+  });
+  hls.on(Hls.Events.ERROR, function (_, d) {
+    if (d.fatal) say('playback error: ' + d.details, true);
+  });
+}
+
+// WHEP is the standard way to WATCH a WebRTC stream: POST an SDP offer, get an answer back.
+async function playWebrtc(id) {
+  teardown();
+  document.getElementById('playerHint').textContent =
+    'WebRTC: a direct peer connection. Sub-second latency, but needs a UDP path (port 8189).';
+  pc = new RTCPeerConnection({ iceServers: [] });
+  pc.addTransceiver('video', { direction: 'recvonly' });
+  pc.addTransceiver('audio', { direction: 'recvonly' });
+  pc.ontrack = function (e) { video.srcObject = e.streams[0]; };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  try {
+    const r = await fetch('/whep/cam' + id + '/whep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: offer.sdp
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const answer = await r.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+  } catch (e) {
+    say('WebRTC failed: ' + e.message + ' - try HLS instead', true);
+  }
+}
+
+document.getElementById('createForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  say('probing stream, up to 12s...');
+  const raw = Object.fromEntries(new FormData(e.target));
+  const body = {};
+  Object.keys(raw).forEach(function (k) { if (raw[k] !== '') body[k] = raw[k]; });
+  const r = await fetch('/video/camera', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const text = await r.text();
+  say(r.ok ? 'registered (201)' : r.status + ' -> ' + text, !r.ok);
+  if (r.ok) e.target.reset();
+  load();
+});
+
+rows.addEventListener('click', async function (e) {
+  const id = e.target.dataset.id;
+  if (!id) return;
+
+  if (e.target.classList.contains('watch')) {
+    current = id;
+    playerBox.style.display = 'block';
+    document.getElementById('playerTitle').textContent = 'camera ' + id + ' - ' + e.target.dataset.name;
+    playHls(id);
+    return;
+  }
+  if (e.target.classList.contains('reprobe')) {
+    say('re-probing...');
+    const r = await fetch('/video/camera/' + id + '/probe', { method: 'POST' });
+    say(r.ok ? 're-probed' : 'failed ' + r.status, !r.ok);
+    load();
+    return;
+  }
+  if (e.target.classList.contains('del')) {
+    const r = await fetch('/video/camera/' + id, { method: 'DELETE' });
+    say(r.ok ? 'deleted (204)' : 'failed ' + r.status, !r.ok);
+    teardown();
+    playerBox.style.display = 'none';
+    load();
+  }
+});
+
+document.getElementById('btnHls').onclick = function () { if (current) playHls(current); };
+document.getElementById('btnWebrtc').onclick = function () { if (current) playWebrtc(current); };
+document.getElementById('btnStop').onclick = function () {
+  teardown();
+  playerBox.style.display = 'none';
+};
+
+load();
+setInterval(load, 10000);   // keep the stream-state column fresh
+</script>
+</body>
+</html>

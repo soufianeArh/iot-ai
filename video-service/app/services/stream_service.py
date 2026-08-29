@@ -46,14 +46,16 @@ def _api(method: str, endpoint: str, **kwargs):
     return response
 
 
-def start_stream(camera_id: int, rtsp_url: str) -> dict:
+def register_path(camera_id: int, rtsp_url: str) -> dict:
     """
-    Tell MediaMTX to serve this camera.
+    Record which RTSP URL this camera maps to. Does NOT open the stream.
 
-    sourceOnDemand=True is the important flag: MediaMTX only opens the RTSP
-    connection when a viewer actually asks for the stream, and closes it 10s
-    after the last viewer leaves. Without it, every registered camera would be
-    pulled 24/7 whether anyone is watching or not.
+    sourceOnDemand=True is what makes that true: MediaMTX stores the mapping and
+    only dials the camera when a viewer actually asks, closing it 10s after the
+    last viewer leaves. So registering 50 cameras opens 0 camera connections.
+    Without the flag, registering a path WOULD start pulling immediately.
+
+    Safe to call repeatedly: an existing path is PATCHed rather than rejected.
     """
     name = path_name(camera_id)
     payload = {
@@ -69,21 +71,26 @@ def start_stream(camera_id: int, rtsp_url: str) -> dict:
     elif not response.ok:
         raise StreamError(f"media server rejected the stream: {response.text[:200]}")
 
-    log.info("stream '%s' registered -> %s", name, rtsp_url)
-    return stream_info(camera_id)
+    log.info("path '%s' -> %s", name, rtsp_url)
+    return path_info(camera_id)
 
 
-def stop_stream(camera_id: int):
+def unregister_path(camera_id: int):
+    """Forget the mapping. Any in-flight connection is dropped with it."""
     name = path_name(camera_id)
     response = _api("DELETE", f"/v3/config/paths/delete/{name}")
     if not response.ok and response.status_code != 404:
         raise StreamError(f"could not stop stream: {response.text[:200]}")
-    log.info("stream '%s' removed", name)
+    log.info("path '%s' removed", name)
 
 
-def stream_info(camera_id: int) -> dict:
+def path_info(camera_id: int) -> dict:
     """
     Playback URLs plus live state.
+
+    `configured` = MediaMTX holds the mapping.
+    `ready`      = it is actually connected to the camera right now, which is
+                   only true while someone is watching (see sourceOnDemand).
 
     URLs are relative on purpose: nginx proxies /hls/ and /whep/ on the same
     origin as the page, so the browser needs no hostname and no CORS.

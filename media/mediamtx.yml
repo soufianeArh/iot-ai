@@ -1,0 +1,49 @@
+# MediaMTX - the media server. Pulls RTSP from cameras, republishes as HLS/WebRTC.
+logLevel: info
+
+# MediaMTX restricts the control API to 127.0.0.1 by default, so a call from
+# another container is rejected with "authentication error". video-service runs
+# in its own container, so the api action must be allowed from the compose
+# network (Docker uses 172.16.0.0/12). Everything stays inside the network -
+# no API port is published to the host.
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+      - action: read
+      - action: playback
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1', '172.16.0.0/12']
+    permissions:
+      - action: api
+      - action: metrics
+
+# Control API: video-service adds/removes camera paths through this.
+api: yes
+apiAddress: :9997
+
+# HLS: universal, works in every browser, ~2-6s latency.
+hls: yes
+hlsAddress: :8888
+hlsVariant: lowLatency
+hlsAlwaysRemux: no          # only remux while someone is watching
+hlsSegmentCount: 7
+hlsSegmentDuration: 1s
+
+# WebRTC: sub-second latency. Needs UDP or a TCP fallback to traverse Docker NAT.
+webrtc: yes
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+
+rtsp: yes
+rtspAddress: :8554
+
+# Unused protocols off: fewer open ports, less noise in the logs.
+rtmp: no
+srt: no
+
+# Paths are created at runtime by video-service via the API, not listed here.
+paths: {}

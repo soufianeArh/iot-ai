@@ -57,20 +57,22 @@ def delete(camera_id):
     return "", 204
 
 
+# HTTP paths stay /stream: that is what a caller cares about. The handler names
+# say what actually happens underneath - a path mapping, not a running stream.
 @camera_bp.route("/<int:camera_id>/stream", methods=["GET"])
 def stream_status(camera_id):
     camera_service.get_camera(camera_id)          # 404 if the camera is unknown
-    return jsonify(stream_service.stream_info(camera_id))
+    return jsonify(stream_service.path_info(camera_id))
 
 
 @camera_bp.route("/<int:camera_id>/stream", methods=["POST"])
-def stream_start(camera_id):
+def stream_register(camera_id):
     camera = camera_service.get_camera(camera_id)
-    return jsonify(stream_service.start_stream(camera.id, camera.rtsp_url))
+    return jsonify(stream_service.register_path(camera.id, camera.rtsp_url))
 
 
 @camera_bp.route("/<int:camera_id>/stream", methods=["DELETE"])
-def stream_stop(camera_id):
+def stream_unregister(camera_id):
     camera_service.get_camera(camera_id)
-    stream_service.stop_stream(camera_id)
+    stream_service.unregister_path(camera_id)
     return "", 204

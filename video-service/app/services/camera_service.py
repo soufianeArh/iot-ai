@@ -84,9 +84,9 @@ def register_camera(payload: dict) -> Camera:
     # Register the stream with the media server. Best-effort: a media server
     # outage must not lose a camera that was already verified and saved.
     try:
-        stream_service.start_stream(camera.id, camera.rtsp_url)
+        stream_service.register_path(camera.id, camera.rtsp_url)
     except stream_service.StreamError as exc:
-        log.warning("camera %s saved but streaming not started: %s", camera.id, exc)
+        log.warning("camera %s saved but not registered with the media server: %s", camera.id, exc)
 
     return camera
 
@@ -113,8 +113,35 @@ def reprobe_camera(camera_id: int) -> Camera:
 def delete_camera(camera_id: int):
     camera = get_camera(camera_id)
     try:
-        stream_service.stop_stream(camera_id)
+        stream_service.unregister_path(camera_id)
     except stream_service.StreamError as exc:
-        log.warning("could not remove stream for camera %s: %s", camera_id, exc)
+        log.warning("could not remove path for camera %s: %s", camera_id, exc)
     db.session.delete(camera)
     db.session.commit()
+
+
+def resync_streams() -> int:
+    """
+    Re-register every camera's RTSP mapping with the media server.
+
+    MediaMTX keeps API-added paths in memory only - restarting it wipes them all,
+    leaving cameras that exist in Postgres but cannot be watched. Postgres is the
+    source of truth, so the fix is simply to replay it.
+
+    register_path() is idempotent (it PATCHes a path that already exists), so this
+    is safe to run repeatedly and safe to run from more than one worker.
+    This does NOT start any streams: paths are sourceOnDemand, so the cameras
+    stay disconnected until somebody watches them.
+
+    Returns the number of camera paths restored.
+    """
+    restored = 0
+    for camera in Camera.query.all():
+        try:
+            stream_service.register_path(camera.id, camera.rtsp_url)
+            restored += 1
+        except stream_service.StreamError as exc:
+            log.warning("could not restore path for camera %s: %s", camera.id, exc)
+    if restored:
+        log.info("restored %s camera path(s) on the media server", restored)
+    return restored

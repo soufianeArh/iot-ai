@@ -7,6 +7,7 @@ registration, 11 scattered db.create_all() calls and hand-rolled migration check
 """
 import logging
 import os
+import time
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify
@@ -58,6 +59,28 @@ def _init_schema(app: Flask):
             db.session.commit()
 
 
+def _resync_streams(app: Flask):
+    """
+    Rebuild the media server's camera list from the database at startup.
+
+    MediaMTX loses every API-added path when it restarts, so without this a
+    restart leaves cameras that exist in Postgres but cannot be played. Best
+    effort: video-service must still start if the media server is down, and it
+    retries because MediaMTX may not be accepting connections yet.
+    """
+    from app.services import camera_service
+
+    with app.app_context():
+        for attempt in range(1, 4):
+            try:
+                camera_service.resync_streams()
+                return
+            except Exception as exc:
+                log.warning("stream resync attempt %s failed: %s", attempt, exc)
+                time.sleep(3)
+        log.error("stream resync gave up; use POST /video/camera/<id>/stream to restore")
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = _database_url()
@@ -89,6 +112,7 @@ def create_app() -> Flask:
         return jsonify({"status": 500, "error": "Internal Server Error"}), 500
 
     _init_schema(app)
+    _resync_streams(app)
     log.info("video-service ready, db=%s", _database_url().split("@")[-1])
     return app
 
