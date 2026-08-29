@@ -105,49 +105,6 @@ services:
     networks:
       - easyaiot-network
 
-  # MediaMTX media server (Phase 6): RTSP in -> HLS/WebRTC out
-  mediamtx:
-    image: bluenviron/mediamtx:latest
-    container_name: mediamtx
-    restart: always
-    volumes:
-      - ../media/mediamtx.yml:/mediamtx.yml:ro
-    ports:
-      # WebRTC needs a real UDP path back to the browser; the others are
-      # reached through nginx only.
-      - "8189:8189/udp"
-    expose:
-      - "8554"   # RTSP
-      - "8888"   # HLS
-      - "8889"   # WebRTC/WHEP
-      - "9997"   # control API
-    networks:
-      - easyaiot-network
-
-  # Video Service (Python/Flask) - camera registry, Phase 5
-  video-service:
-    build:
-      context: ../video-service
-    container_name: video-service
-    restart: always
-    depends_on:
-      PostgresSQL:
-        condition: service_healthy
-    expose:
-      - "6000"
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@PostgresSQL:5432/${POSTGRES_DB}
-      - DEVICE_SERVICE_URL=http://device-service:8080
-      - MEDIA_SERVER_API=http://mediamtx:9997
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:6000/video/health >/dev/null || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - easyaiot-network
-
   # Nginx - the single front door (Phase 3)
   nginx:
     image: nginx:1.27-alpine
@@ -155,8 +112,6 @@ services:
     restart: always
     depends_on:
       device-service:
-        condition: service_healthy
-      video-service:
         condition: service_healthy
     ports:
       - "80:80"
