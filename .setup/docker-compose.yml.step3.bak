@@ -52,31 +52,6 @@ services:
         max-file: "10"
     networks:
       - easyaiot-network
-  # EMQX MQTT broker (Phase 4) - dashboard on http://localhost:18083
-  EMQX:
-    image: emqx/emqx:5.8.7
-    container_name: emqx-server
-    restart: always
-    ports:
-      - "1883:1883"    # MQTT
-      - "18083:18083"  # Dashboard
-    environment:
-      - EMQX_NAME=emqx
-      - EMQX_HOST=127.0.0.1
-      - EMQX_NODE__COOKIE=devcookie
-      - EMQX_DASHBOARD__DEFAULT_USERNAME=admin
-      - EMQX_DASHBOARD__DEFAULT_PASSWORD=${EMQX_DASHBOARD_PASSWORD}
-      - EMQX_LOG__LEVEL=warning
-    volumes:
-      - emqx_data:/opt/emqx/data
-    healthcheck:
-      test: ["CMD", "/opt/emqx/bin/emqx", "ctl", "status"]
-      interval: 10s
-      timeout: 25s
-      retries: 5
-    networks:
-      - easyaiot-network
-
   # Device Service (Spring Boot) - built from ../device-service
   device-service:
     build:
@@ -86,8 +61,6 @@ services:
     depends_on:
       PostgresSQL:
         condition: service_healthy
-      EMQX:
-        condition: service_healthy
     # Phase 3: no host port. Reachable only inside the network, via nginx.
     expose:
       - "8080"
@@ -95,7 +68,6 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://PostgresSQL:5432/${POSTGRES_DB}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-      - MQTT_BROKER_URL=tcp://EMQX:1883
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
       interval: 15s
@@ -119,9 +91,7 @@ services:
       - ../web/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ../web/html:/usr/share/nginx/html:ro
     healthcheck:
-      # 127.0.0.1 not localhost: localhost resolves to [::1] in this image and
-      # nginx `listen 80` binds IPv4 only -> the check would always fail.
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -131,7 +101,6 @@ services:
 volumes:
   pgdata:
   redisdata:
-  emqx_data:
 
 networks:
   easyaiot-network:

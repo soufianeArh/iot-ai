@@ -37,6 +37,11 @@
 
   <div id="msg"></div>
 
+  <div id="propsPanel" style="display:none;margin-top:1rem;padding:.8rem;border:1px solid #ccc;border-radius:6px">
+    <strong id="propsTitle"></strong>
+    <div id="propsBody" style="font-size:.85rem;margin-top:.5rem"></div>
+  </div>
+
   <table>
     <thead>
       <tr><th>ID</th><th>Name</th><th>Code</th><th>Product Key</th><th>Status</th><th>Created</th><th></th></tr>
@@ -83,7 +88,7 @@ async function load() {
         <td>${d.productKey}</td>
         <td>${d.status}</td>
         <td>${d.createdAt ? new Date(d.createdAt).toLocaleString() : ''}</td>
-        <td><button data-id="${d.id}" class="del">delete</button></td>
+        <td><button data-id="${d.id}" class="props">properties</button> <button data-id="${d.id}" class="del">delete</button></td>
       </tr>`).join('');
   } catch (e) {
     rows.innerHTML = `<tr><td colspan="7" class="err">failed to load: ${e.message}</td></tr>`;
@@ -109,6 +114,20 @@ document.getElementById('createForm').addEventListener('submit', async (e) => {
 });
 
 rows.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('props')) {
+    const id = e.target.dataset.id;
+    const panel = document.getElementById('propsPanel');
+    const body  = document.getElementById('propsBody');
+    document.getElementById('propsTitle').textContent = 'Latest properties - device ' + id;
+    panel.style.display = 'block';
+    const r = await fetch('/api/devices/' + id + '/properties');
+    const list = await r.json();
+    body.innerHTML = list.length
+      ? list.map(p => `<div><code>${p.key}</code> = <b>${p.value}</b>
+          <span style="opacity:.6">(${new Date(p.recordedAt).toLocaleString()})</span></div>`).join('')
+      : '<em>no readings yet - publish over MQTT</em>';
+    return;
+  }
   if (!e.target.classList.contains('del')) return;
   const r = await fetch('/api/devices/' + e.target.dataset.id, { method: 'DELETE' });
   say(r.ok ? 'deleted (204)' : 'delete failed ' + r.status, !r.ok);
