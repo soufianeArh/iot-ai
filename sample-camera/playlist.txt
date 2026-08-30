@@ -1,0 +1,5 @@
+file 'bus.jpg'
+duration 4
+file 'zidane.jpg'
+duration 4
+file 'bus.jpg'

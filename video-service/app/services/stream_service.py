@@ -62,6 +62,11 @@ def register_path(camera_id: int, rtsp_url: str) -> dict:
         "source": rtsp_url,
         "sourceOnDemand": True,
         "sourceOnDemandCloseAfter": "10s",
+        # Pull over TCP. The RTSP default is UDP, which silently drops packets
+        # across Docker's NAT: frames arrive corrupted, decoders emit
+        # "corrupted macroblock", and the source tears the reader down as
+        # "too slow". TCP costs a little latency and is reliable.
+        "rtspTransport": "tcp",
     }
 
     response = _api("POST", f"/v3/config/paths/add/{name}", json=payload)

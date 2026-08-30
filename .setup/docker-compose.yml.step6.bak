@@ -148,65 +148,6 @@ services:
     networks:
       - easyaiot-network
 
-  # ---- Phase 7: a fake camera, so YOLO has something real to detect ----
-  # sample-camera-rtsp acts as the camera's own RTSP server; sample-camera
-  # publishes YOLO's sample images into it on a loop. Replace with a real
-  # camera URL and delete both - nothing downstream changes.
-  sample-camera-rtsp:
-    image: bluenviron/mediamtx:latest
-    container_name: sample-camera-rtsp
-    restart: always
-    expose:
-      - "8554"
-    networks:
-      - easyaiot-network
-
-  sample-camera:
-    build:
-      context: ../sample-camera
-    container_name: sample-camera
-    restart: always
-    depends_on:
-      - sample-camera-rtsp
-    environment:
-      - RTSP_TARGET=rtsp://sample-camera-rtsp:8554/live
-    networks:
-      - easyaiot-network
-
-  # AI Service (Python) - YOLO inference workers
-  ai-service:
-    build:
-      context: ../ai-service
-    container_name: ai-service
-    restart: always
-    depends_on:
-      PostgresSQL:
-        condition: service_healthy
-    expose:
-      - "7000"
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@PostgresSQL:5432/${POSTGRES_DB}
-      - VIDEO_SERVICE_URL=http://video-service:6000
-      - MEDIA_RTSP_BASE=rtsp://mediamtx:8554
-      - SNAPSHOT_DIR=/snapshots
-      - SAMPLE_INTERVAL_SECONDS=3
-      - MIN_CONFIDENCE=0.4
-      - TORCH_THREADS=2
-      - OMP_NUM_THREADS=2
-    # A hard ceiling as well as the thread cap: inference must never be able to
-    # starve the media server or the health checks.
-    cpus: 2.0
-    volumes:
-      - snapshots:/snapshots
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:7000/ai/health >/dev/null || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
-    networks:
-      - easyaiot-network
-
   # Nginx - the single front door (Phase 3)
   nginx:
     image: nginx:1.27-alpine
@@ -217,16 +158,11 @@ services:
         condition: service_healthy
       video-service:
         condition: service_healthy
-      ai-service:
-        condition: service_healthy
     ports:
       - "80:80"
     volumes:
       - ../web/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ../web/html:/usr/share/nginx/html:ro
-      # Python writes the annotated frames, nginx serves them. Read-only here so
-      # the web tier can never modify what the AI tier produced.
-      - snapshots:/usr/share/nginx/snapshots:ro
     healthcheck:
       # 127.0.0.1 not localhost: localhost resolves to [::1] in this image and
       # nginx `listen 80` binds IPv4 only -> the check would always fail.
@@ -238,7 +174,6 @@ services:
       - easyaiot-network
 
 volumes:
-  snapshots:
   pgdata:
   redisdata:
   emqx_data:

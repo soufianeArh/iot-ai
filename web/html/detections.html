@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detections</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1100px; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  nav { font-size: .85rem; margin-bottom: 1rem; }
+  nav a { margin-right: 1rem; }
+  section { margin: 1.4rem 0; }
+  h2 { font-size: 1rem; margin-bottom: .5rem; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; font-size: .85rem; }
+  th { background: rgba(127,127,127,.12); }
+  button { padding: .4rem .6rem; font: inherit; }
+  .ok { color: #15803d; font-weight: 600; }
+  .bad { color: #b91c1c; font-weight: 600; }
+  #msg { font-size: .85rem; margin: .6rem 0; white-space: pre-wrap; }
+  .err { color: #b91c1c; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .8rem; }
+  .shot { border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
+  .shot img { width: 100%; display: block; background: #000; }
+  .shot .cap { font-size: .75rem; padding: .35rem .5rem; opacity: .8; }
+  .pill { display: inline-block; font-size: .7rem; padding: .1rem .4rem; border-radius: 10px;
+          background: rgba(127,127,127,.18); margin-right: .25rem; }
+  .hint { font-size: .8rem; opacity: .7; }
+</style>
+</head>
+<body>
+  <h1>Detections</h1>
+  <nav>
+    <a href="/">&larr; devices</a>
+    <a href="/cameras.html">cameras</a>
+    <span style="opacity:.6">ai-service (YOLOv8) reading from MediaMTX</span>
+  </nav>
+
+  <div id="msg"></div>
+
+  <section>
+    <h2>Analysis tasks</h2>
+    <p class="hint">Starting a task spawns a worker thread that samples one frame every 2s from the media server and runs YOLO on it.</p>
+    <table>
+      <thead>
+        <tr><th>Camera</th><th>Running</th><th>Frames analysed</th><th>Detections saved</th><th>Last error</th><th></th></tr>
+      </thead>
+      <tbody id="taskRows"><tr><td colspan="6">loading...</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>What has been seen</h2>
+    <table>
+      <thead><tr><th>Camera</th><th>Label</th><th>Count</th></tr></thead>
+      <tbody id="summaryRows"><tr><td colspan="3">nothing yet</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Latest annotated frames</h2>
+    <p class="hint">Written by ai-service to a shared volume and served directly by nginx - the image bytes never pass through Python.</p>
+    <div class="shots" id="shots"></div>
+  </section>
+
+<script>
+const msg = document.getElementById('msg');
+function say(t, bad) { msg.textContent = t; msg.className = bad ? 'err' : ''; }
+
+async function j(url, opts) {
+  const r = await fetch(url, opts);
+  if (!r.ok && r.status !== 204) throw new Error('HTTP ' + r.status + ' on ' + url);
+  if (r.status === 204) return null;
+
+  // When a backend is down, nginx falls through to the SPA handler and returns
+  // index.html. Parsing that as JSON gives a baffling "Unexpected token '<'",
+  // so check the content type and say what is actually wrong.
+  const type = r.headers.get('content-type') || '';
+  if (!type.includes('application/json')) {
+    throw new Error('service behind ' + url + ' is not running yet (got HTML, not JSON)');
+  }
+  return r.json();
+}
+
+async function loadTasks() {
+  const cameras = await j('/video/camera');
+  const tasks = await j('/ai/tasks');
+  const byId = {};
+  tasks.forEach(function (t) { byId[t.cameraId] = t; });
+
+  const html = cameras.map(function (c) {
+    const t = byId[c.id];
+    const running = t && t.running;
+    return '<tr>' +
+      '<td>' + c.id + ' - ' + c.name + '</td>' +
+      '<td class="' + (running ? 'ok' : 'bad') + '">' + (running ? 'yes' : 'no') + '</td>' +
+      '<td>' + (t ? t.framesAnalysed : '') + '</td>' +
+      '<td>' + (t ? t.detectionsSaved : '') + '</td>' +
+      '<td>' + (t && t.lastError ? t.lastError : '') + '</td>' +
+      '<td><button data-id="' + c.id + '" class="' + (running ? 'stop' : 'start') + '">' +
+        (running ? 'stop' : 'start') + '</button></td>' +
+      '</tr>';
+  }).join('');
+
+  const tb = document.getElementById('taskRows');
+  if (html !== tb.innerHTML) tb.innerHTML = html || '<tr><td colspan="6">no cameras</td></tr>';
+}
+
+async function loadSummary() {
+  const rows = await j('/ai/detections/summary');
+  const html = rows.map(function (r) {
+    return '<tr><td>' + r.cameraId + '</td><td>' + r.label + '</td><td>' + r.count + '</td></tr>';
+  }).join('');
+  const tb = document.getElementById('summaryRows');
+  if (html !== tb.innerHTML) tb.innerHTML = html || '<tr><td colspan="3">nothing yet</td></tr>';
+}
+
+async function loadShots() {
+  const rows = await j('/ai/detections?limit=60');
+
+  // One row per detected object, but many objects share one frame - collapse
+  // by snapshot so each image appears once with all of its labels.
+  const frames = [];
+  const seen = {};
+  rows.forEach(function (d) {
+    if (!d.snapshotUrl) return;
+    if (!seen[d.snapshotUrl]) {
+      seen[d.snapshotUrl] = { url: d.snapshotUrl, at: d.detectedAt, cam: d.cameraId, labels: {} };
+      frames.push(seen[d.snapshotUrl]);
+    }
+    const f = seen[d.snapshotUrl];
+    f.labels[d.label] = (f.labels[d.label] || 0) + 1;
+  });
+
+  const html = frames.slice(0, 12).map(function (f) {
+    const pills = Object.keys(f.labels)
+      .map(function (k) { return '<span class="pill">' + k + ' x' + f.labels[k] + '</span>'; }).join('');
+    return '<div class="shot">' +
+      '<img src="' + f.url + '" loading="lazy" alt="detection">' +
+      '<div class="cap">cam ' + f.cam + ' - ' + new Date(f.at).toLocaleTimeString() + '<br>' + pills + '</div>' +
+      '</div>';
+  }).join('');
+
+  const box = document.getElementById('shots');
+  if (html !== box.innerHTML) box.innerHTML = html || '<p class="hint">no frames yet - start a task above</p>';
+}
+
+async function refresh() {
+  try {
+    await loadTasks();
+    await loadSummary();
+    await loadShots();
+  } catch (e) {
+    say(e.message, true);
+  }
+}
+
+document.getElementById('taskRows').addEventListener('click', async function (e) {
+  const id = e.target.dataset.id;
+  if (!id) return;
+  try {
+    if (e.target.classList.contains('start')) {
+      say('starting analysis for camera ' + id + '... the first run loads the model, which takes a few seconds.');
+      await j('/ai/tasks/' + id, { method: 'POST' });
+      say('analysis started');
+    } else if (e.target.classList.contains('stop')) {
+      await j('/ai/tasks/' + id, { method: 'DELETE' });
+      say('analysis stopped');
+    }
+  } catch (err) {
+    say(err.message, true);
+  }
+  refresh();
+});
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

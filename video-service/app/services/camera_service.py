@@ -138,6 +138,7 @@ def resync_streams() -> int:
     restored = 0
     for camera in Camera.query.all():
         try:
+
             stream_service.register_path(camera.id, camera.rtsp_url)
             restored += 1
         except stream_service.StreamError as exc:
