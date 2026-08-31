@@ -68,9 +68,32 @@ def task_status(camera_id):
 
 @analysis_bp.route("/models", methods=["GET"])
 def list_models():
-    """Which weight sets a task can be started with. Names only - loading a
-    model to report its classes would defeat the point of lazy loading."""
-    return jsonify(detector.available())
+    """Which weight sets a task can be started with, and - for the ones already
+    in memory - what they detect. Deliberately does not load anything: this is
+    polled by the UI, and a 10s model load per poll would be absurd."""
+    loaded = detector.loaded_classes()
+    return jsonify([{"name": n, "loaded": n in loaded, "classes": loaded.get(n, [])}
+                    for n in detector.available()])
+
+
+@analysis_bp.route("/labels", methods=["GET"])
+def list_labels():
+    """Every class any configured model can detect, for the rule form.
+
+    This DOES load the weights, which is why it is a separate route from
+    /models: it is called once when a form opens, not on a poll. The
+    alternative - a free-text label box - silently accepts 'vehicle' or 'car'
+    and the rule then never fires, with nothing anywhere to explain why.
+    """
+    out = {}
+    for name in detector.available():
+        try:
+            out[name] = sorted(detector.get_model(name).names.values())
+        except Exception as exc:
+            log.warning("could not load model %s for labels: %s", name, exc)
+            out[name] = []
+    return jsonify({"byModel": out,
+                    "all": sorted({c for cs in out.values() for c in cs})})
 
 
 # ------------------------------------------------------------------ detections

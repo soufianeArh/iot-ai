@@ -171,6 +171,38 @@ def list_devices() -> dict:
 
 # -------------------------------------------------------------------- overview
 
+def list_analysis_tasks() -> dict:
+    """
+    Which cameras are being analysed, and with which weights.
+
+    This is the tool that explains absences. A camera only reports the classes
+    of the models its task was started with, so "why is there no fire on
+    camera 5" is almost never a broken detector - it is a task running the
+    default weights, which have no fire class at all. Without this the model
+    can only say "there are no fire detections", which is true and useless.
+    """
+    from app.services import detector, task_manager
+
+    tasks = []
+    for t in task_manager.list_all():
+        tasks.append({
+            "cameraId": t["cameraId"],
+            "running": t["running"],
+            "models": t.get("model", "default").split(","),
+            "framesAnalysed": t["framesAnalysed"],
+            "detectionsSaved": t["detectionsSaved"],
+            "lastError": t.get("lastError"),
+        })
+
+    return {
+        "runningTasks": tasks,
+        "camerasNotAnalysed": "any camera without an entry above is not being "
+                              "analysed at all, so it produces no detections",
+        "modelsConfigured": detector.available(),
+        "classesPerLoadedModel": detector.loaded_classes(),
+    }
+
+
 def overview() -> dict:
     """
     Everything that might need attention, in one call.
@@ -195,16 +227,19 @@ def overview() -> dict:
                                if c.get("status") != "REACHABLE"],
         "devicesOffline": [d["name"] for d in devices
                            if d.get("status") != "ONLINE"],
-        "analysisRunningOnCameras": [t["cameraId"] for t in task_manager.list_all()
-                                     if t.get("running")],
+        # Camera id AND models: a running task on the wrong weights looks
+        # identical to a healthy one until you see which models it holds.
+        "analysisRunning": [{"cameraId": t["cameraId"],
+                             "models": t.get("model", "default").split(",")}
+                            for t in task_manager.list_all() if t.get("running")],
         "detectionsLastHour": count_detections(since_minutes=60).get("total", 0),
     }
 
 
 # ------------------------------------------------------------------- registry
 #
-# JSON Schema per tool, in the OpenAI function-calling format that Ollama,
-# Groq and OpenAI all accept. The `description` fields are prompt engineering:
+# JSON Schema per tool, in the widely-supported function-calling format, so
+# the same definitions work against any LLM endpoint the service is pointed at. The `description` fields are prompt engineering:
 # they are the only thing telling the model when each tool applies, so they say
 # WHEN to use it, not just what it does.
 
@@ -216,6 +251,7 @@ REGISTRY = {
     "list_alert_rules": list_alert_rules,
     "list_cameras": list_cameras,
     "list_devices": list_devices,
+    "list_analysis_tasks": list_analysis_tasks,
 }
 
 SCHEMAS = [
@@ -314,6 +350,19 @@ SCHEMAS = [
                             "their latest reported values such as temperature and "
                             "humidity. Use for 'what is the temperature', "
                             "'which devices are offline'."),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_analysis_tasks",
+            "description": ("Which cameras are currently being analysed and with "
+                            "which detection models, plus what classes those "
+                            "models can recognise. ALWAYS use this when asked why "
+                            "something is not being detected, or whether a camera "
+                            "is watching for a particular thing - a camera only "
+                            "finds the classes of the models its task runs."),
             "parameters": {"type": "object", "properties": {}},
         },
     },

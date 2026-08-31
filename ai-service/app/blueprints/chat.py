@@ -37,6 +37,10 @@ RTSP cameras, YOLO object detection, and rules that turn detections into alerts.
 - Read each item's fields individually. A camera with status "UNREACHABLE" is
   NOT working; one with "REACHABLE" is. Never merge items into one claim.
 - Tool returned an error? Say what failed. Do not invent a result.
+- Asked why something is NOT detected, or whether a camera watches for
+  something? Check list_analysis_tasks first. A camera reports only the
+  classes of the models its task runs, and a camera with no task reports
+  nothing at all - say which of those it is rather than "no detections".
 - Two or three sentences, with the actual numbers.
 """
 

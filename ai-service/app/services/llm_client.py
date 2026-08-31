@@ -62,16 +62,18 @@ def chat(messages: list, tools: list = None) -> dict:
         # By far the most common first-run failure: the server is up but the
         # weights were never pulled into it.
         raise LLMError(
-            f"model '{MODEL}' is not available. Pull it first: "
-            f"docker exec ollama ollama pull {MODEL}")
+            f"model '{MODEL}' is not available at this endpoint. Check "
+            f"LLM_MODEL, and if the endpoint is a local runtime make sure the "
+            f"weights have been pulled into it.")
     if response.status_code == 429:
         # Groq's free tier is 8k tokens/minute. One question costs roughly
         # 2k (schemas + system prompt + tool results), so three in quick
         # succession trip it. Say that, rather than leaking the raw error.
         retry = response.headers.get("retry-after", "a few")
         raise LLMError(
-            f"rate limit reached on {MODEL}. The free tier allows about 3-4 "
-            f"questions per minute - wait {retry} seconds and ask again.")
+            f"rate limit reached on {MODEL}. Hosted endpoints cap tokens per "
+            f"minute, and one question costs roughly 2k - wait {retry} seconds "
+            f"and ask again.")
     if response.status_code in (401, 403):
         raise LLMError("the API key was rejected. Check LLM_API_KEY in .setup/.env")
     if not response.ok:
@@ -99,12 +101,14 @@ def health() -> dict:
     except requests.RequestException as exc:
         return {"reachable": False, "model": MODEL, "error": str(exc)[:200]}
 
-    # Ollama reports "qwen2.5:1.5b"; some providers append a suffix.
+    # Some endpoints report the bare name, others append a suffix.
     present = any(n == MODEL or n.startswith(MODEL) for n in names)
     return {
         "reachable": True,
         "model": MODEL,
         "modelPulled": present,
         "available": names[:10],
-        "hint": None if present else f"docker exec ollama ollama pull {MODEL}",
+        "hint": None if present else ("model not present at this endpoint - "
+                                      "check LLM_MODEL, or pull the weights if "
+                                      "the endpoint is a local runtime"),
     }

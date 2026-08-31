@@ -94,3 +94,13 @@ def get_model(name: str = None):
 
 def class_names(name: str = None):
     return get_model(name).names
+
+
+def loaded_classes() -> dict:
+    """Classes of the models already in memory, without loading any.
+
+    Deliberately does not call get_model(): reporting what the system CAN
+    detect must never cost a 10s model load, and a model that no task has
+    used yet has nothing to report anyway.
+    """
+    return {name: sorted(model.names.values()) for name, model in _models.items()}

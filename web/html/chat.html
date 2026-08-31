@@ -51,10 +51,10 @@
   </nav>
 
   <div class="intro">
-    <p><b>This is not a chatbot with the database in its prompt.</b> It is a
-    language model given a fixed set of functions it may call. Which model is a
-    config choice - <code>LLM_BASE_URL</code> in compose points at a hosted API or
-    at the local <code>ollama</code> container, and no code changes either way.</p>
+    <p><b>This is not a chatbot with the database in its prompt.</b> It is an
+    LLM given a fixed set of functions it may call. Which LLM is a config choice -
+    <code>LLM_BASE_URL</code> in compose points at whichever endpoint you like,
+    local or hosted, and no code changes either way.</p>
 
     <p>When you ask something, the model does not answer straight away - it replies
     with a <i>tool call</i>, like
@@ -66,6 +66,11 @@
     It also cannot see the camera images, and it cannot answer anything the system
     does not store - there is no "why", no maintenance notes, no history of who
     did what.</p>
+
+    <p>It does know which cameras are being analysed and with which detection
+    models, so it can explain an <i>absence</i> - if nothing is being reported,
+    it can tell you whether the camera is idle or simply running weights that
+    have no class for what you asked about.</p>
 
     <details>
       <summary>the functions it is allowed to call</summary>
@@ -97,11 +102,14 @@ let history = [];
 const EXAMPLES = [
   'Is everything ok?',
   'Any alerts I should look at?',
+  'Which cameras are being analysed, and with which models?',
+  'Why is fire not being detected on camera 4?',
+  'Have you seen any fire today?',
+  'How many cows and birds were detected today?',
   'How many people did the cameras see today?',
-  'When did you last see a bus?',
   'Which cameras are working?',
-  'What is the temperature on sensor-01?',
-  'What alert rules are configured?'
+  'What alert rules are configured?',
+  'What is the temperature on sensor-01?'
 ];
 
 function esc(s) {
