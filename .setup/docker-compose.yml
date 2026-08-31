@@ -148,10 +148,11 @@ services:
     networks:
       - easyaiot-network
 
-  # ---- Phase 7: a fake camera, so YOLO has something real to detect ----
-  # sample-camera-rtsp acts as the camera's own RTSP server; sample-camera
-  # publishes YOLO's sample images into it on a loop. Replace with a real
-  # camera URL and delete both - nothing downstream changes.
+  # ---- Phase 7: fake cameras, so YOLO has something real to detect ----
+  # This is the cameras' own RTSP server, and it is SHARED: drone-camera
+  # publishes to /drone and land-camera to /land on this one server. Point a
+  # real camera URL at video-service instead and none of this is needed -
+  # nothing downstream knows the difference.
   sample-camera-rtsp:
     image: bluenviron/mediamtx:latest
     container_name: sample-camera-rtsp
@@ -161,17 +162,17 @@ services:
     networks:
       - easyaiot-network
 
-  sample-camera:
-    build:
-      context: ../sample-camera
-    container_name: sample-camera
-    restart: always
-    depends_on:
-      - sample-camera-rtsp
-    environment:
-      - RTSP_TARGET=rtsp://sample-camera-rtsp:8554/live
-    networks:
-      - easyaiot-network
+  # The original /live publisher (YOLO's bus.jpg and zidane.jpg) was removed
+  # once cameras 4 and 5 covered the same ground with better content. To bring
+  # it back: restore a service built from the sample-camera directory with
+  # RTSP_TARGET pointing at .../live, then re-register the camera with
+  #   POST /video/camera  {"name":"sample-cam","rtspUrl":"rtsp://...:8554/live"}
+  #
+  # NOTE what is deliberately NOT removed:
+  #   * sample-camera-rtsp - one server, three paths (/live, /drone, /land).
+  #     Deleting it would take cameras 4 and 5 down with it.
+  #   * the sample-camera directory - it is the build context for drone-camera
+  #     and land-camera too.
 
   # A second fake camera: synthetic drone frames of a crop fire and a flooded
   # field. Same image as sample-camera - publish.sh takes its destination from
@@ -200,6 +201,23 @@ services:
       # portrait. concat refuses mixed sizes, so both are letterboxed onto a
       # 4:3 canvas, which wastes fewer pixels on either than 16:9 would.
       - OUT_SIZE=960x720
+    networks:
+      - easyaiot-network
+
+  # A third fake camera: farm stills - birds, a cow, a fire, people. Same
+  # image and same publish script as the others; only the volume and the
+  # RTSP path differ. One RTSP server hosts /live, /drone and /land.
+  land-camera:
+    build:
+      context: ../sample-camera
+    container_name: land-camera
+    restart: always
+    depends_on:
+      - sample-camera-rtsp
+    volumes:
+      - ../samples/land:/samples:ro
+    environment:
+      - RTSP_TARGET=rtsp://sample-camera-rtsp:8554/land
     networks:
       - easyaiot-network
 
@@ -272,6 +290,12 @@ services:
       # fire class; "fire" detects fire and smoke and nothing else. A task
       # picks one: POST /ai/tasks/4?model=fire
       - YOLO_EXTRA_MODELS=fire=/models/fire.pt
+      # Tasks live in memory, so nothing analyses anything after a restart
+      # until someone POSTs. This starts the ones that should always be on.
+      # Format: "cameraId:model[,model]" entries separated by ';'.
+      # Cameras 3 and 4 stay idle deliberately - they are for comparing
+      # against camera 5 by hand, not for burning CPU permanently.
+      - AUTOSTART_TASKS=5:default,fire
       # Phase 8b - chat. Provider-agnostic: any OpenAI-compatible endpoint.
       # Hosted (Groq) because this host has 8 GB of RAM: a local model and the
       # rest of the stack together exhaust the WSL2 VM and wedge the engine.
@@ -288,8 +312,10 @@ services:
       #   - LLM_MODEL=qwen2.5:1.5b
       #   - LLM_API_KEY=ollama-needs-no-key
     # A hard ceiling as well as the thread cap: inference must never be able to
-    # starve the media server or the health checks.
-    cpus: 2.0
+    # starve the media server or the health checks. Raised from 2 to 4 (of 8)
+    # once the Docker Desktop Kubernetes control plane was turned off - three
+    # cameras running side by side for comparison need more than two cores.
+    cpus: 4.0
     volumes:
       - snapshots:/snapshots
       # Third-party weights, mounted rather than baked in: they are large, they

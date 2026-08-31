@@ -46,7 +46,7 @@
     <p class="hint">Starting a task spawns a worker thread that samples one frame every 2s from the media server and runs YOLO on it.</p>
     <table>
       <thead>
-        <tr><th>Camera</th><th>Running</th><th>Frames analysed</th><th>Detections saved</th><th>Last error</th><th></th></tr>
+        <tr><th>Camera</th><th>Running</th><th>Frames analysed</th><th>Detections saved</th><th>Last error</th><th>Model</th><th></th></tr>
       </thead>
       <tbody id="taskRows"><tr><td colspan="6">loading...</td></tr></tbody>
     </table>
@@ -85,6 +85,13 @@ async function j(url, opts) {
   return r.json();
 }
 
+// Which weight sets exist. Fetched once - the list only changes when compose
+// does. A camera detects ONLY the classes of the models it was started with,
+// so this choice is not cosmetic: start on 'default' alone and every fire rule
+// silently stops firing.
+let MODELS = ['default'];
+j('/ai/models').then(function (m) { if (m && m.length) MODELS = m; }).catch(function () {});
+
 async function loadTasks() {
   const cameras = await j('/video/camera');
   const tasks = await j('/ai/tasks');
@@ -100,13 +107,23 @@ async function loadTasks() {
       '<td>' + (t ? t.framesAnalysed : '') + '</td>' +
       '<td>' + (t ? t.detectionsSaved : '') + '</td>' +
       '<td>' + (t && t.lastError ? t.lastError : '') + '</td>' +
+      '<td>' + (running
+        ? '<code>' + t.model + '</code>'
+        : '<select class="model" data-id="' + c.id + '">' +
+            MODELS.map(function (m) {
+              return '<option value="' + m + '">' + m + '</option>';
+            }).join('') +
+            (MODELS.length > 1
+              ? '<option value="' + MODELS.join(',') + '">' + MODELS.join(' + ') + '</option>'
+              : '') +
+          '</select>') + '</td>' +
       '<td><button data-id="' + c.id + '" class="' + (running ? 'stop' : 'start') + '">' +
         (running ? 'stop' : 'start') + '</button></td>' +
       '</tr>';
   }).join('');
 
   const tb = document.getElementById('taskRows');
-  if (html !== tb.innerHTML) tb.innerHTML = html || '<tr><td colspan="6">no cameras</td></tr>';
+  if (html !== tb.innerHTML) tb.innerHTML = html || '<tr><td colspan="7">no cameras</td></tr>';
 }
 
 async function loadSummary() {
@@ -163,9 +180,15 @@ document.getElementById('taskRows').addEventListener('click', async function (e)
   if (!id) return;
   try {
     if (e.target.classList.contains('start')) {
-      say('starting analysis for camera ' + id + '... the first run loads the model, which takes a few seconds.');
-      await j('/ai/tasks/' + id, { method: 'POST' });
-      say('analysis started');
+      // Without this the POST defaults to 'default' and any fire rule on the
+      // camera goes quiet with no error anywhere.
+      const sel = document.querySelector('select.model[data-id="' + id + '"]');
+      const model = sel ? sel.value : '';
+      say('starting analysis for camera ' + id + ' on ' + (model || 'default') +
+          '... the first run loads the model, which takes a few seconds.');
+      await j('/ai/tasks/' + id + (model ? '?model=' + encodeURIComponent(model) : ''),
+              { method: 'POST' });
+      say('analysis started on ' + (model || 'default'));
     } else if (e.target.classList.contains('stop')) {
       await j('/ai/tasks/' + id, { method: 'DELETE' });
       say('analysis stopped');

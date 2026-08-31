@@ -84,6 +84,13 @@ def create_app() -> Flask:
         return jsonify({"status": 500, "error": "Internal Server Error"}), 500
 
     _init_schema(app)
+
+    # Bring back the tasks that should always be running. Off-thread and
+    # best-effort: the registry is in memory, so without this a restart leaves
+    # every camera idle and the stack looks healthy while detecting nothing.
+    from app.services import autostart
+    autostart.run(app)
+
     log.info("ai-service ready, db=%s", _database_url().split("@")[-1])
     return app
 

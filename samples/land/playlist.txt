@@ -1,0 +1,3 @@
+# One video, not a list of stills - see ../build_loop.sh for why that matters.
+# 6 stills x 3s = an 18s loop: birds, a cow, a farm fire, and people.
+file 'loop.mp4'
