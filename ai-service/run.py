@@ -52,6 +52,15 @@ def create_app() -> Flask:
     from app.blueprints.analysis import analysis_bp
     app.register_blueprint(analysis_bp, url_prefix="/ai")
 
+    # Phase 8. Same prefix on purpose: /ai/rules and /ai/alerts sit beside
+    # /ai/tasks, so nginx needs no new location block.
+    from app.blueprints.alerts import alerts_bp
+    app.register_blueprint(alerts_bp, url_prefix="/ai")
+
+    # Phase 8b: /ai/chat - tool-calling assistant over the tables above.
+    from app.blueprints.chat import chat_bp
+    app.register_blueprint(chat_bp, url_prefix="/ai")
+
     @app.get("/ai/health")
     def health():
         try:

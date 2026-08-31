@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 820px; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; margin-bottom: .2rem; }
+  nav { font-size: .85rem; margin-bottom: 1rem; }
+  nav a { margin-right: 1rem; }
+  .intro { border: 1px solid #ccc; border-left: 3px solid #6b7280; border-radius: 6px;
+           padding: .8rem 1rem; font-size: .87rem; line-height: 1.5; }
+  .intro p { margin: .4rem 0; }
+  .intro code { font-size: .85em; background: rgba(127,127,127,.15); padding: .05rem .3rem; border-radius: 3px; }
+  details { margin-top: .5rem; font-size: .85rem; }
+  summary { cursor: pointer; opacity: .75; }
+  #toolList { margin: .5rem 0 0; padding-left: 1.1rem; }
+  #toolList li { margin: .25rem 0; opacity: .85; }
+  #toolList code { font-weight: 600; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0 .6rem; }
+  .chip { border: 1px solid #bbb; border-radius: 999px; padding: .3rem .7rem;
+          font-size: .8rem; cursor: pointer; background: transparent; color: inherit; }
+  .chip:hover { background: rgba(127,127,127,.15); }
+
+  #thread { display: flex; flex-direction: column; gap: .7rem; margin: 1rem 0; }
+  .msg { padding: .6rem .85rem; border-radius: 10px; max-width: 85%; font-size: .9rem;
+         line-height: 1.5; white-space: pre-wrap; }
+  .me  { align-self: flex-end; background: rgba(59,130,246,.16); }
+  .bot { align-self: flex-start; border: 1px solid #ccc; }
+  .bot.bad { border-color: #b91c1c; color: #b91c1c; }
+  .tools { font-size: .72rem; opacity: .7; margin-top: .4rem; }
+  .tools code { background: rgba(127,127,127,.15); padding: .05rem .3rem; border-radius: 3px; }
+  .typing { font-size: .85rem; opacity: .6; }
+
+  form { display: flex; gap: .5rem; margin-top: 1rem; }
+  #q { flex: 1; padding: .55rem .7rem; font: inherit; }
+  button[type=submit] { padding: .55rem 1rem; font: inherit; }
+  #warn { font-size: .85rem; color: #b91c1c; margin: .8rem 0; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <h1>Ask</h1>
+  <nav>
+    <a href="/">&larr; devices</a>
+    <a href="/cameras.html">cameras</a>
+    <a href="/detections.html">detections</a>
+    <a href="/alerts.html">alerts</a>
+  </nav>
+
+  <div class="intro">
+    <p><b>This is not a chatbot with the database in its prompt.</b> It is a
+    language model given a fixed set of functions it may call. Which model is a
+    config choice - <code>LLM_BASE_URL</code> in compose points at a hosted API or
+    at the local <code>ollama</code> container, and no code changes either way.</p>
+
+    <p>When you ask something, the model does not answer straight away - it replies
+    with a <i>tool call</i>, like
+    <code>search_alerts(camera_id=3, since_minutes=60)</code>. The server runs that
+    function, which is ordinary Python with an ordinary SQL query, and hands the
+    rows back. Only then does the model write a sentence.</p>
+
+    <p>So it can never invent a number: every figure below came out of Postgres.
+    It also cannot see the camera images, and it cannot answer anything the system
+    does not store - there is no "why", no maintenance notes, no history of who
+    did what.</p>
+
+    <details>
+      <summary>the functions it is allowed to call</summary>
+      <ul id="toolList"><li>loading...</li></ul>
+    </details>
+  </div>
+
+  <div id="warn"></div>
+
+  <div class="chips" id="chips"></div>
+
+  <div id="thread"></div>
+
+  <form id="askForm">
+    <input id="q" placeholder="ask about cameras, detections, alerts or devices" autocomplete="off">
+    <button type="submit" id="send">Ask</button>
+  </form>
+
+<script>
+const thread = document.getElementById('thread');
+const warn = document.getElementById('warn');
+const input = document.getElementById('q');
+const send = document.getElementById('send');
+
+// Sent back to the server on every request: the server keeps no session, so the
+// conversation lives here in the page.
+let history = [];
+
+const EXAMPLES = [
+  'Is everything ok?',
+  'Any alerts I should look at?',
+  'How many people did the cameras see today?',
+  'When did you last see a bus?',
+  'Which cameras are working?',
+  'What is the temperature on sensor-01?',
+  'What alert rules are configured?'
+];
+
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function bubble(text, cls, tools) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + cls;
+  div.textContent = text;
+  if (tools && tools.length) {
+    const note = document.createElement('div');
+    note.className = 'tools';
+    // Showing the calls is the point of the page: you can watch the model
+    // choose, and check that the answer came from a real query.
+    note.innerHTML = 'called ' + tools.map(function (t) {
+      const args = Object.keys(t.arguments || {})
+        .map(function (k) { return k + '=' + t.arguments[k]; }).join(', ');
+      return '<code>' + esc(t.tool) + '(' + esc(args) + ')</code>';
+    }).join(' then ');
+    div.appendChild(note);
+  }
+  thread.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return div;
+}
+
+async function ask(question) {
+  if (!question) return;
+  bubble(question, 'me');
+  history.push({ role: 'user', content: question });
+  input.value = '';
+  send.disabled = true;
+
+  const pending = bubble('thinking...', 'bot');
+  pending.classList.add('typing');
+
+  try {
+    const r = await fetch('/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: question, history: history.slice(0, -1) })
+    });
+    const type = r.headers.get('content-type') || '';
+    if (!type.includes('application/json')) {
+      throw new Error('ai-service is not running yet (got HTML, not JSON)');
+    }
+    const body = await r.json();
+    pending.remove();
+
+    if (!r.ok) {
+      bubble(body.message || ('HTTP ' + r.status), 'bot bad');
+    } else {
+      bubble(body.answer, 'bot', body.toolsUsed);
+      history.push({ role: 'assistant', content: body.answer });
+    }
+  } catch (e) {
+    pending.remove();
+    bubble(e.message, 'bot bad');
+  }
+  send.disabled = false;
+  input.focus();
+}
+
+document.getElementById('askForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  ask(input.value.trim());
+});
+
+// ---- startup: render examples, list the tools, check the model is pulled ----
+
+document.getElementById('chips').innerHTML = EXAMPLES.map(function (q) {
+  return '<button class="chip" type="button">' + esc(q) + '</button>';
+}).join('');
+document.getElementById('chips').addEventListener('click', function (e) {
+  if (e.target.classList.contains('chip')) ask(e.target.textContent);
+});
+
+fetch('/ai/chat/tools').then(function (r) { return r.json(); }).then(function (tools) {
+  document.getElementById('toolList').innerHTML = tools.map(function (t) {
+    const args = t.parameters.length ? '(' + t.parameters.join(', ') + ')' : '()';
+    return '<li><code>' + esc(t.name + args) + '</code><br>' + esc(t.description) + '</li>';
+  }).join('');
+}).catch(function () {
+  document.getElementById('toolList').innerHTML = '<li>ai-service is not reachable</li>';
+});
+
+fetch('/ai/chat/health').then(function (r) { return r.json(); }).then(function (h) {
+  if (!h.reachable) {
+    warn.textContent = 'The model endpoint is not reachable.\n' + (h.error || '') +
+      '\nCheck LLM_BASE_URL and LLM_API_KEY in .setup/.env';
+  } else if (!h.modelPulled) {
+    // Two different first-run failures, same symptom: locally the weights were
+    // never pulled; on a hosted provider the model name has been retired.
+    warn.textContent = 'The model "' + h.model + '" is not available on this endpoint.' +
+      (h.hint ? '\n' + h.hint : '\nPick one of: ' + (h.available || []).join(', '));
+  }
+}).catch(function () {});
+
+input.focus();
+</script>
+</body>
+</html>

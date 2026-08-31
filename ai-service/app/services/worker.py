@@ -21,7 +21,8 @@ import cv2
 
 from app import db
 from app.models import Detection
-from app.services.detector import get_model
+from app.services import rule_engine
+from app.services.detector import DEFAULT_MODEL, get_model
 
 log = logging.getLogger(__name__)
 
@@ -37,11 +38,23 @@ OPEN_TIMEOUT = 20
 class InferenceWorker(threading.Thread):
     """Analyses one camera until asked to stop."""
 
-    def __init__(self, app, camera_id: int, rtsp_url: str):
+    def __init__(self, app, camera_id: int, rtsp_url: str, model_name: str = None,
+                 interval: float = None):
         super().__init__(name=f"worker-cam{camera_id}", daemon=True)
         self.app = app
         self.camera_id = camera_id
         self.rtsp_url = rtsp_url
+        # One or more weight sets, e.g. "default,fire". A model only reports
+        # the classes it was trained on, so detecting cars AND fire needs two
+        # of them - there is no single set of weights here that does both.
+        # Fixed for the life of the task: changing it means stop and start,
+        # which keeps stored detections consistent with one class vocabulary.
+        self.model_names = [n.strip() for n in (model_name or DEFAULT_MODEL).split(",")
+                            if n.strip()]
+        # Per task, because cost scales with the number of models. Two models
+        # every 6s is the same load as one every 3s, so a camera can buy back
+        # what the second model costs without slowing the others down.
+        self.interval = float(interval) if interval else SAMPLE_INTERVAL
         # NOT self._stop: threading.Thread already defines _stop() as an
         # internal method, and join() calls it when the thread finishes.
         # Shadowing it with an Event makes join() raise
@@ -49,6 +62,7 @@ class InferenceWorker(threading.Thread):
         self._stop_event = threading.Event()
         self.frames_analysed = 0
         self.detections_saved = 0
+        self.alerts_raised = 0
         self.last_error = None
         self.started_at = datetime.now(timezone.utc)
 
@@ -97,7 +111,7 @@ class InferenceWorker(threading.Thread):
                 # loop spins as fast as frames arrive and burns a whole core.
                 time.sleep(0.01)
                 continue
-            next_run = now + SAMPLE_INTERVAL
+            next_run = now + self.interval
 
             ok, frame = capture.retrieve()
             if not ok:
@@ -111,43 +125,70 @@ class InferenceWorker(threading.Thread):
     # ---------------------------------------------------------------- analysis
 
     def _analyse(self, frame):
-        model = get_model()
-        results = model.predict(frame, conf=MIN_CONFIDENCE, imgsz=INFER_SIZE, verbose=False)
+        # One decode, N models. Each is a separate forward pass - this is
+        # genuinely N times the inference cost, not a free lunch.
+        hits = []                      # (model, box) across every model
+        for name in self.model_names:
+            model = get_model(name)
+            result = model.predict(frame, conf=MIN_CONFIDENCE,
+                                   imgsz=INFER_SIZE, verbose=False)[0]
+            if result.boxes is not None and len(result.boxes):
+                hits.append((model, result))
         self.frames_analysed += 1
 
-        result = results[0]
-        boxes = result.boxes
-        if boxes is None or len(boxes) == 0:
+        if not hits:
             return
 
-        snapshot_name = self._save_snapshot(result)
+        snapshot_name = self._save_snapshot([r for _, r in hits])
 
         rows = []
-        for box in boxes:
-            x1, y1, x2, y2 = (int(v) for v in box.xyxy[0].tolist())
-            rows.append(Detection(
-                camera_id=self.camera_id,
-                label=model.names[int(box.cls[0])],
-                confidence=float(box.conf[0]),
-                x1=x1, y1=y1, x2=x2, y2=y2,
-                snapshot=snapshot_name,
-            ))
+        for model, result in hits:
+            for box in result.boxes:
+                x1, y1, x2, y2 = (int(v) for v in box.xyxy[0].tolist())
+                rows.append(Detection(
+                    camera_id=self.camera_id,
+                    label=model.names[int(box.cls[0])],
+                    confidence=float(box.conf[0]),
+                    x1=x1, y1=y1, x2=x2, y2=y2,
+                    snapshot=snapshot_name,
+                ))
 
         # Each worker is its own thread, so it needs its own app context and
         # its own session - SQLAlchemy sessions are not thread-safe.
         with self.app.app_context():
             db.session.add_all(rows)
             db.session.commit()
+
+            # Phase 8: decide whether this frame is worth telling anyone about.
+            # Runs on the inference thread, so it must stay cheap - one indexed
+            # SELECT and, rarely, one INSERT. And it must never be able to kill
+            # the loop: a bad rule should cost alerts, not inference.
+            try:
+                self.alerts_raised += len(
+                    rule_engine.evaluate(self.camera_id, rows, snapshot_name))
+            except Exception as exc:
+                self.last_error = f"rule evaluation failed: {str(exc)[:150]}"
+                log.exception("camera %s: rule evaluation failed", self.camera_id)
+                db.session.rollback()
+
         self.detections_saved += len(rows)
         log.info("camera %s: %s detection(s) -> %s",
                  self.camera_id, len(rows), snapshot_name)
 
-    def _save_snapshot(self, result):
-        """Write the annotated frame (boxes + labels drawn by Ultralytics)."""
+    def _save_snapshot(self, results):
+        """Write the annotated frame (boxes + labels drawn by Ultralytics).
+
+        Every model draws onto the SAME image, so one snapshot shows the whole
+        picture - a truck from COCO and a fire from the fire weights together,
+        which is the point of running both.
+        """
         try:
             os.makedirs(SNAPSHOT_DIR, exist_ok=True)
             name = f"cam{self.camera_id}_{int(time.time() * 1000)}.jpg"
-            cv2.imwrite(os.path.join(SNAPSHOT_DIR, name), result.plot())
+            canvas = None
+            for result in results:
+                canvas = result.plot() if canvas is None else result.plot(img=canvas)
+            cv2.imwrite(os.path.join(SNAPSHOT_DIR, name), canvas)
             return name
         except Exception as exc:
             log.warning("camera %s: could not write snapshot: %s", self.camera_id, exc)
@@ -159,9 +200,12 @@ class InferenceWorker(threading.Thread):
         return {
             "cameraId": self.camera_id,
             "rtspUrl": self.rtsp_url,
+            "model": ",".join(self.model_names),
+            "intervalSeconds": self.interval,
             "running": self.is_alive() and not self._stop_event.is_set(),
             "framesAnalysed": self.frames_analysed,
             "detectionsSaved": self.detections_saved,
+            "alertsRaised": self.alerts_raised,
             "lastError": self.last_error,
             "startedAt": self.started_at.isoformat(),
         }

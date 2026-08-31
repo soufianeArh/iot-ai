@@ -173,6 +173,74 @@ services:
     networks:
       - easyaiot-network
 
+  # A second fake camera: synthetic drone frames of a crop fire and a flooded
+  # field. Same image as sample-camera - publish.sh takes its destination from
+  # RTSP_TARGET and its content from /samples, so a different camera is a
+  # different env var and a different volume, not a different build.
+  #
+  # One RTSP server hosts both: sample-camera-rtsp serves /live and /drone.
+  #
+  # Note these frames detect nothing under COCO weights - there is no "fire"
+  # or "flood" class. They are here for a custom-trained model later.
+  drone-camera:
+    build:
+      context: ../sample-camera
+    container_name: drone-camera
+    restart: always
+    depends_on:
+      - sample-camera-rtsp
+    # Mounted, not baked in: the images can be regenerated without a rebuild.
+    # This shadows the playlist.txt the Dockerfile copied in, which is why the
+    # drone playlist has to live in the mounted directory.
+    volumes:
+      - ../samples/drone:/samples:ro
+    environment:
+      - RTSP_TARGET=rtsp://sample-camera-rtsp:8554/drone
+      # The two source photos are 611x342 and 368x468 - one landscape, one
+      # portrait. concat refuses mixed sizes, so both are letterboxed onto a
+      # 4:3 canvas, which wastes fewer pixels on either than 16:9 would.
+      - OUT_SIZE=960x720
+    networks:
+      - easyaiot-network
+
+  # ---- Phase 8b: local LLM runtime for the chat assistant ----
+  # Ollama is the SERVER; the model is pulled into it separately and lives in
+  # the named volume:
+  #     docker exec ollama ollama pull qwen2.5:1.5b
+  # Without the volume that download repeats on every recreate.
+  #
+  # It speaks the OpenAI /v1/chat/completions API, so ai-service can be pointed
+  # at Groq/OpenAI/Anthropic instead by changing LLM_BASE_URL alone.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    # NOT "always": this host cannot afford a local model alongside the stack,
+    # so the chat runs on a hosted API and this service is opt-in. With
+    # restart: always it came back on every Docker restart and quietly ate the
+    # memory that was the reason for switching away from it.
+    # Start it deliberately: docker compose up -d ollama
+    restart: "no"
+    expose:
+      - "11434"
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      # Unload the model after 5 minutes idle. Memory here is tight and the
+      # chat is used in bursts; a reload costs a few seconds.
+      - OLLAMA_KEEP_ALIVE=5m
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=1
+    # Same reasoning as ai-service: inference must never starve the healthchecks.
+    cpus: 2.0
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - easyaiot-network
+
   # AI Service (Python) - YOLO inference workers
   ai-service:
     build:
@@ -190,14 +258,44 @@ services:
       - MEDIA_RTSP_BASE=rtsp://mediamtx:8554
       - SNAPSHOT_DIR=/snapshots
       - SAMPLE_INTERVAL_SECONDS=3
-      - MIN_CONFIDENCE=0.4
+      # Measured, not guessed. On the sample camera real detections cluster
+      # high (bus 0.88-0.89, person median 0.83) while the false positives on
+      # content COCO has no class for sit at 0.43-0.63. 0.65 lands in the gap:
+      #   0.60 -> keeps 80% of person, 100% of bus, but a junk "cat" at 0.627
+      #           still gets through
+      #   0.65 -> keeps 79% of person, 100% of bus, and that cat is filtered
+      # One point of recall buys the removal of the worst false positive.
+      - MIN_CONFIDENCE=0.65
       - TORCH_THREADS=2
       - OMP_NUM_THREADS=2
+      # Named weight sets. The default is COCO (person, bus, ...) which has no
+      # fire class; "fire" detects fire and smoke and nothing else. A task
+      # picks one: POST /ai/tasks/4?model=fire
+      - YOLO_EXTRA_MODELS=fire=/models/fire.pt
+      # Phase 8b - chat. Provider-agnostic: any OpenAI-compatible endpoint.
+      # Hosted (Groq) because this host has 8 GB of RAM: a local model and the
+      # rest of the stack together exhaust the WSL2 VM and wedge the engine.
+      # To go back to fully-offline, uncomment the ollama service below and
+      # swap these three lines - no code changes.
+      - DEVICE_SERVICE_URL=http://device-service:8080
+      - LLM_BASE_URL=https://api.groq.com/openai/v1
+      # Must support tool calling. gpt-oss-20b is the fast one on Groq that
+      # does; llama-3.3-70b-versatile was retired and 404s.
+      - LLM_MODEL=openai/gpt-oss-20b
+      - LLM_API_KEY=${GROQ_API_KEY}
+      #   local alternative (needs >=6 GB for Docker):
+      #   - LLM_BASE_URL=http://ollama:11434/v1
+      #   - LLM_MODEL=qwen2.5:1.5b
+      #   - LLM_API_KEY=ollama-needs-no-key
     # A hard ceiling as well as the thread cap: inference must never be able to
     # starve the media server or the health checks.
     cpus: 2.0
     volumes:
       - snapshots:/snapshots
+      # Third-party weights, mounted rather than baked in: they are large, they
+      # are not ours, and swapping them should not need a rebuild. See
+      # models/README.md for where fire.pt came from and how it was audited.
+      - ../models:/models:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:7000/ai/health >/dev/null || exit 1"]
       interval: 15s
@@ -239,6 +337,7 @@ services:
 
 volumes:
   snapshots:
+  ollama:
   pgdata:
   redisdata:
   emqx_data:

@@ -1,0 +1,12 @@
+# One video, not a list of stills.
+#
+# The concat demuxer will not loop a list of images reliably: with
+#     file a.jpg / duration 7 / file b.jpg / duration 4 / file b.jpg
+# ffmpeg rendered only the first 7 seconds and stopped - the later entries
+# never appeared, so the published stream froze on a single image forever.
+# That is why camera 4 only ever saw one of the two photos.
+#
+# loop.mp4 is those same photos rendered to a real 11s clip (7s fire, 4s
+# vehicle) by build_loop.sh. A video has a known duration, so -stream_loop -1
+# loops it cleanly and both images actually get published.
+file 'loop.mp4'

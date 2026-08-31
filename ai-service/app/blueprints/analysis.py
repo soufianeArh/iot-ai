@@ -5,8 +5,9 @@ from flask import Blueprint, current_app, jsonify, request
 
 from app import db
 from app.models import Detection
-from app.services import camera_client, task_manager
+from app.services import camera_client, detector, task_manager
 from app.services.camera_client import CameraLookupError
+from app.services.detector import UnknownModel
 from app.services.task_manager import TaskError
 
 log = logging.getLogger(__name__)
@@ -26,6 +27,11 @@ def _handle_task(exc):
 
 # ------------------------------------------------------------------ tasks
 
+@analysis_bp.errorhandler(UnknownModel)
+def _handle_unknown_model(exc):
+    return jsonify({"status": 400, "error": "Bad Request", "message": str(exc)}), 400
+
+
 @analysis_bp.route("/tasks", methods=["GET"])
 def list_tasks():
     task_manager.reap()
@@ -38,7 +44,12 @@ def start_task(camera_id):
     url = camera_client.stream_url(camera)
     # current_app is a proxy; the worker thread needs the real object.
     app = current_app._get_current_object()
-    return jsonify(task_manager.start(app, camera_id, url)), 202
+    # Accepted from the query string or a JSON body, so a fire camera and a
+    # gate camera can run different weights at the same time.
+    body = request.get_json(silent=True) or {}
+    model_name = request.args.get("model") or body.get("model")
+    interval = request.args.get("interval", type=float) or body.get("interval")
+    return jsonify(task_manager.start(app, camera_id, url, model_name, interval)), 202
 
 
 @analysis_bp.route("/tasks/<int:camera_id>", methods=["DELETE"])
@@ -53,6 +64,13 @@ def task_status(camera_id):
     if status is None:
         return jsonify({"cameraId": camera_id, "running": False}), 200
     return jsonify(status)
+
+
+@analysis_bp.route("/models", methods=["GET"])
+def list_models():
+    """Which weight sets a task can be started with. Names only - loading a
+    model to report its classes would defeat the point of lazy loading."""
+    return jsonify(detector.available())
 
 
 # ------------------------------------------------------------------ detections

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alerts</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 1100px; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  nav { font-size: .85rem; margin-bottom: 1rem; }
+  nav a { margin-right: 1rem; }
+  section { margin: 1.6rem 0; }
+  h2 { font-size: 1rem; margin-bottom: .5rem; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; font-size: .85rem; }
+  th { background: rgba(127,127,127,.12); }
+  button, input, select { padding: .4rem .5rem; font: inherit; }
+  form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+  form label { font-size: .8rem; display: flex; flex-direction: column; gap: .15rem; }
+  form label span { opacity: .7; }
+  input[type=number] { width: 6.5rem; }
+  #msg { font-size: .85rem; margin: .6rem 0; white-space: pre-wrap; }
+  .err { color: #b91c1c; }
+  .hint { font-size: .8rem; opacity: .7; margin: .3rem 0 .8rem; }
+  .cards { display: flex; gap: .8rem; flex-wrap: wrap; }
+  .card { border: 1px solid #ccc; border-radius: 6px; padding: .6rem .9rem; min-width: 7rem; }
+  .card b { display: block; font-size: 1.5rem; }
+  .card span { font-size: .75rem; opacity: .7; }
+  .sev { font-weight: 600; font-size: .75rem; padding: .1rem .45rem; border-radius: 10px; }
+  .INFO     { background: rgba(59,130,246,.18);  color: #1d4ed8; }
+  .WARNING  { background: rgba(234,179,8,.20);   color: #a16207; }
+  .CRITICAL { background: rgba(220,38,38,.18);   color: #b91c1c; }
+  .off { opacity: .45; }
+  .open { font-weight: 600; }
+  .thumb { width: 120px; display: block; border-radius: 4px; background: #000; }
+</style>
+</head>
+<body>
+  <h1>Alerts</h1>
+  <nav>
+    <a href="/">&larr; devices</a>
+    <a href="/cameras.html">cameras</a>
+    <a href="/detections.html">detections</a>
+    <a href="/chat.html">ask</a>
+    <span style="opacity:.6">rule engine inside ai-service</span>
+  </nav>
+
+  <div id="msg"></div>
+
+  <section>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section>
+    <h2>Rules</h2>
+    <p class="hint">
+      A rule fires when at least <b>min count</b> objects of <b>label</b> appear in one frame
+      above <b>min confidence</b> - and then stays quiet for <b>cooldown</b> seconds.
+      Leave camera empty to watch every camera.
+    </p>
+    <form id="ruleForm">
+      <label><span>name</span><input name="name" placeholder="person in yard" required></label>
+      <label><span>label</span><input name="label" placeholder="person" value="person" required></label>
+      <label><span>camera (blank = any)</span><input name="cameraId" type="number" placeholder="any"></label>
+      <label><span>min confidence</span><input name="minConfidence" type="number" step="0.05" min="0.05" max="1" value="0.5"></label>
+      <label><span>min count</span><input name="minCount" type="number" min="1" value="1"></label>
+      <label><span>cooldown (s)</span><input name="cooldownSeconds" type="number" min="0" value="60"></label>
+      <label><span>severity</span>
+        <select name="severity">
+          <option>INFO</option><option selected>WARNING</option><option>CRITICAL</option>
+        </select>
+      </label>
+      <button type="submit">Add rule</button>
+    </form>
+
+    <table style="margin-top:1rem">
+      <thead><tr>
+        <th>ID</th><th>Name</th><th>Label</th><th>Camera</th>
+        <th>Conf</th><th>Count</th><th>Cooldown</th><th>Severity</th><th>Enabled</th><th></th>
+      </tr></thead>
+      <tbody id="ruleRows"><tr><td colspan="10">loading...</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Raised alerts</h2>
+    <p class="hint">Acknowledging is how an operator says "seen it" - the row stays, it just stops being open.</p>
+    <label style="font-size:.85rem">
+      <input type="checkbox" id="onlyOpen"> show only unacknowledged
+    </label>
+    <table style="margin-top:.6rem">
+      <thead><tr>
+        <th>When</th><th>Severity</th><th>Rule</th><th>Camera</th>
+        <th>What</th><th>Frame</th><th></th>
+      </tr></thead>
+      <tbody id="alertRows"><tr><td colspan="7">nothing yet</td></tr></tbody>
+    </table>
+  </section>
+
+<script>
+const msg = document.getElementById('msg');
+function say(t, bad) { msg.textContent = t || ''; msg.className = bad ? 'err' : ''; }
+
+async function j(url, opts) {
+  const r = await fetch(url, opts);
+  if (r.status === 204) return null;
+  const type = r.headers.get('content-type') || '';
+  if (!type.includes('application/json')) {
+    throw new Error('service behind ' + url + ' is not running yet (got HTML, not JSON)');
+  }
+  const body = await r.json();
+  // The API explains itself in `message`; surface that instead of a bare 400.
+  if (!r.ok) throw new Error(body.message || ('HTTP ' + r.status + ' on ' + url));
+  return body;
+}
+
+function esc(s) {
+  return String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+async function loadSummary() {
+  const s = await j('/ai/alerts/summary');
+  const sev = s.bySeverity || {};
+  const cards = [
+    ['open', s.unacknowledged, 'need attention'],
+    ['total', s.total, 'all time'],
+    ['CRITICAL', sev.CRITICAL || 0, 'critical'],
+    ['WARNING', sev.WARNING || 0, 'warning'],
+    ['INFO', sev.INFO || 0, 'info']
+  ];
+  const html = cards.map(function (c) {
+    return '<div class="card"><b>' + c[1] + '</b><span>' + c[2] + '</span></div>';
+  }).join('');
+  const box = document.getElementById('cards');
+  if (html !== box.innerHTML) box.innerHTML = html;
+}
+
+async function loadRules() {
+  const rules = await j('/ai/rules');
+  const html = rules.map(function (r) {
+    return '<tr class="' + (r.enabled ? '' : 'off') + '">' +
+      '<td>' + r.id + '</td>' +
+      '<td>' + esc(r.name) + '</td>' +
+      '<td>' + esc(r.label) + '</td>' +
+      '<td>' + (r.cameraId === null ? 'any' : r.cameraId) + '</td>' +
+      '<td>' + r.minConfidence + '</td>' +
+      '<td>' + r.minCount + '</td>' +
+      '<td>' + r.cooldownSeconds + 's</td>' +
+      '<td><span class="sev ' + r.severity + '">' + r.severity + '</span></td>' +
+      '<td>' + (r.enabled ? 'yes' : 'no') + '</td>' +
+      '<td>' +
+        '<button data-rule="' + r.id + '" class="toggle">' + (r.enabled ? 'disable' : 'enable') + '</button> ' +
+        '<button data-rule="' + r.id + '" class="delrule">delete</button>' +
+      '</td></tr>';
+  }).join('');
+  const tb = document.getElementById('ruleRows');
+  if (html !== tb.innerHTML) tb.innerHTML = html || '<tr><td colspan="10">no rules yet - add one above</td></tr>';
+}
+
+async function loadAlerts() {
+  const onlyOpen = document.getElementById('onlyOpen').checked;
+  const rows = await j('/ai/alerts?limit=50' + (onlyOpen ? '&acknowledged=false' : ''));
+  const html = rows.map(function (a) {
+    return '<tr class="' + (a.acknowledged ? 'off' : 'open') + '">' +
+      '<td>' + new Date(a.raisedAt).toLocaleString() + '</td>' +
+      '<td><span class="sev ' + a.severity + '">' + a.severity + '</span></td>' +
+      '<td>' + esc(a.ruleName) + '</td>' +
+      '<td>' + a.cameraId + '</td>' +
+      '<td>' + a.count + ' x ' + esc(a.label) + ' (max ' + a.maxConfidence + ')</td>' +
+      '<td>' + (a.snapshotUrl
+          ? '<a href="' + a.snapshotUrl + '" target="_blank"><img class="thumb" loading="lazy" src="' + a.snapshotUrl + '" alt=""></a>'
+          : '') + '</td>' +
+      '<td>' + (a.acknowledged
+          ? 'acked'
+          : '<button data-alert="' + a.id + '" class="ack">ack</button>') + '</td>' +
+      '</tr>';
+  }).join('');
+  const tb = document.getElementById('alertRows');
+  if (html !== tb.innerHTML) tb.innerHTML = html || '<tr><td colspan="7">nothing yet</td></tr>';
+}
+
+async function refresh() {
+  try {
+    await loadSummary();
+    await loadRules();
+    await loadAlerts();
+  } catch (e) { say(e.message, true); }
+}
+
+document.getElementById('ruleForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target));
+  try {
+    await j('/ai/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    say('rule created');
+    e.target.reset();
+  } catch (err) { say(err.message, true); }
+  refresh();
+});
+
+document.getElementById('ruleRows').addEventListener('click', async function (e) {
+  const id = e.target.dataset.rule;
+  if (!id) return;
+  try {
+    if (e.target.classList.contains('delrule')) {
+      await j('/ai/rules/' + id, { method: 'DELETE' });
+      say('rule deleted - its past alerts are kept');
+    } else if (e.target.classList.contains('toggle')) {
+      // PUT is a partial update here, so sending only `enabled` is enough.
+      const enable = e.target.textContent === 'enable';
+      await j('/ai/rules/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enable })
+      });
+      say('rule ' + (enable ? 'enabled' : 'disabled'));
+    }
+  } catch (err) { say(err.message, true); }
+  refresh();
+});
+
+document.getElementById('alertRows').addEventListener('click', async function (e) {
+  const id = e.target.dataset.alert;
+  if (!id || !e.target.classList.contains('ack')) return;
+  try {
+    await j('/ai/alerts/' + id + '/ack', { method: 'POST' });
+  } catch (err) { say(err.message, true); }
+  refresh();
+});
+
+document.getElementById('onlyOpen').addEventListener('change', refresh);
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

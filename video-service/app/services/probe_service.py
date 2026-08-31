@@ -7,12 +7,21 @@ never be able to hang a request thread.
 """
 import json
 import logging
+import os
 import shutil
 import subprocess
 
 log = logging.getLogger(__name__)
 
-PROBE_TIMEOUT_SECONDS = 12
+# How long to let ffprobe negotiate RTSP and gather stream metadata.
+#
+# 12s was too tight and only ever passed by luck: measured on a loaded host the
+# original sample stream probed in ~12s and a second, equally valid one took
+# 24-50s, so registering a good camera failed intermittently. The cost of a
+# larger value is that an unreachable camera holds a request open for longer -
+# which is why it stays bounded, and configurable, so a fast host can lower it
+# again without a rebuild.
+PROBE_TIMEOUT_SECONDS = int(os.getenv("PROBE_TIMEOUT_SECONDS", "45"))
 
 
 class ProbeError(Exception):

@@ -11,6 +11,7 @@ import threading
 
 import requests
 
+from app.services import detector
 from app.services.worker import InferenceWorker
 
 log = logging.getLogger(__name__)
@@ -23,13 +24,25 @@ class TaskError(Exception):
     """Something stopped a task from starting or stopping."""
 
 
-def start(app, camera_id: int, rtsp_url: str) -> dict:
+def start(app, camera_id: int, rtsp_url: str, model_name: str = None,
+          interval: float = None) -> dict:
+    # Validated here, in the request thread, on purpose. get_model() runs
+    # inside the worker, where an exception only lands in last_error and the
+    # caller still gets 202 Accepted for a task that can never analyse a frame.
+    # "default,fire" is valid - every name in the list must be known.
+    for name in (model_name or "").split(","):
+        name = name.strip()
+        if name and name not in detector.available():
+            raise detector.UnknownModel(
+                f"unknown model {name!r}; available: "
+                f"{', '.join(detector.available())}")
+
     with _lock:
         existing = _workers.get(camera_id)
         if existing and existing.is_alive():
             return existing.status()               # idempotent
 
-        worker = InferenceWorker(app, camera_id, rtsp_url)
+        worker = InferenceWorker(app, camera_id, rtsp_url, model_name, interval)
         worker.start()
         _workers[camera_id] = worker
         log.info("started analysis for camera %s", camera_id)
