@@ -456,7 +456,13 @@ services:
       ai-service:
         condition: service_healthy
     ports:
-      - "80:80"
+      # Configurable, not hardcoded: a deploy target may already have
+      # something else bound to 80 (this is the ONLY host port this stack
+      # actually needs to change per-environment - everything else the stack
+      # exposes stayed free on the one shared server this was checked
+      # against). Defaults to 80 so local dev is unaffected; a specific
+      # deploy's own .env sets NGINX_HOST_PORT when 80 is already taken.
+      - "${NGINX_HOST_PORT:-80}:80"
     volumes:
       - ../web/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
       # Phase 9: the built Vue app is what "/" serves. Built on the host with
