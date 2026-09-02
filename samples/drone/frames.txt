@@ -1,0 +1,6 @@
+# Which stills go into loop.mp4, in order. Needed here because this directory
+# holds both the original .png downloads and the normalised .jpg copies of the
+# same photos - taking everything would show each one twice.
+web-drone-crop-fire-01.jpg
+web-drone-vehicle-01.jpg
+flood-01.png

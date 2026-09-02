@@ -60,13 +60,20 @@ def evaluate(camera_id: int, detections: list, snapshot: str | None) -> list:
 
     # Group once. Rules are per label, and a frame with 12 boxes would otherwise
     # be re-scanned for every rule.
+    #
+    # Keyed on the LOWERCASED label, because validate() lowercases a rule's
+    # label on the way in. That was invisible while every model was COCO, whose
+    # class names are already lowercase - the plant-disease model emits
+    # "Corn leaf blight", and a rule stored as "corn leaf blight" would have
+    # matched nothing, silently, forever.
     by_label: dict[str, list] = {}
     for detection in detections:
-        by_label.setdefault(detection.label, []).append(detection)
+        by_label.setdefault((detection.label or "").lower(), []).append(detection)
 
     raised = []
     for rule in rules:
-        alert = _apply(rule, camera_id, by_label.get(rule.label, []), snapshot)
+        alert = _apply(rule, camera_id, by_label.get((rule.label or "").lower(), []),
+                       snapshot)
         if alert is not None:
             raised.append(alert)
 
@@ -125,15 +132,27 @@ def _rules_for(camera_id: int) -> list:
     seconds that is ~0.3 queries/second/camera on an indexed table - far cheaper
     than a cache that has to be invalidated whenever a rule is edited.
     """
+    # kind == "detection" only. A device rule has no label so it would match
+    # nothing here anyway - but leaving it in the query would still let its
+    # cooldown tick on camera frames, which is a genuine wrong answer.
     return (AlertRule.query
             .filter(AlertRule.enabled.is_(True))
+            .filter(AlertRule.kind == "detection")
             .filter(db.or_(AlertRule.camera_id.is_(None),
                            AlertRule.camera_id == camera_id))
             .all())
 
 
-def _cooldown_expired(rule: AlertRule, camera_id: int) -> bool:
-    key = (rule.id, camera_id)
+def _cooldown_expired(rule: AlertRule, scope) -> bool:
+    """
+    `scope` is what the cooldown is counted per: a camera id for a detection
+    rule, or "device:CODE" for a device rule.
+
+    Per-scope rather than per-rule, so one "temperature over 35" rule can alert
+    about the greenhouse and the field independently instead of the first
+    sensor to breach silencing the rest.
+    """
+    key = (rule.id, scope)
 
     with _lock:
         last = _last_fired.get(key)
@@ -142,9 +161,13 @@ def _cooldown_expired(rule: AlertRule, camera_id: int) -> bool:
         # Cold cache - a restart, or the first frame ever for this pair. Fall
         # back to the table, otherwise every service restart would re-announce
         # everything it is still looking at.
-        last = (db.session.query(db.func.max(Alert.raised_at))
-                .filter(Alert.rule_id == rule.id, Alert.camera_id == camera_id)
-                .scalar())
+        query = (db.session.query(db.func.max(Alert.raised_at))
+                 .filter(Alert.rule_id == rule.id))
+        if isinstance(scope, str) and scope.startswith("device:"):
+            query = query.filter(Alert.device_code == scope.split(":", 1)[1])
+        else:
+            query = query.filter(Alert.camera_id == scope)
+        last = query.scalar()
         if last is not None:
             with _lock:
                 _last_fired[key] = last
@@ -153,6 +176,12 @@ def _cooldown_expired(rule: AlertRule, camera_id: int) -> bool:
         return True         # never fired
 
     return (utcnow() - last).total_seconds() >= rule.cooldown_seconds
+
+
+def _remember_fired(rule_id: int, scope):
+    """Record that a rule just fired for a scope, starting its cooldown."""
+    with _lock:
+        _last_fired[(rule_id, scope)] = utcnow()
 
 
 def forget(rule_id: int):
@@ -178,9 +207,40 @@ def validate(payload: dict, existing: AlertRule | None = None) -> dict:
     if not name:
         raise RuleError("name is required")
 
-    label = str(field("label", existing.label if existing else "")).strip().lower()
-    if not label:
+    kind = str(field("kind", existing.kind if existing else "detection")).strip().lower()
+    if kind not in ("detection", "device"):
+        raise RuleError("kind must be 'detection' or 'device'")
+
+    # A device rule has no label and a detection rule has no threshold, so the
+    # required fields differ by kind. Checked here rather than with a database
+    # constraint: the point is a message naming the box to fill in.
+    label = str(field("label", existing.label if existing else "") or "").strip().lower()
+    if kind == "detection" and not label:
         raise RuleError("label is required, e.g. 'person'")
+
+    device_code = field("deviceCode", existing.device_code if existing else None)
+    device_code = str(device_code).strip() if device_code not in (None, "", "any") else None
+
+    property_key = field("propertyKey", existing.property_key if existing else None)
+    property_key = str(property_key).strip() if property_key else None
+
+    operator = str(field("operator", existing.operator if existing else ">") or ">").strip()
+    threshold = field("threshold", existing.threshold if existing else None)
+
+    if kind == "device":
+        if not property_key:
+            raise RuleError("propertyKey is required, e.g. 'temperature'")
+        if operator not in (">", "<"):
+            raise RuleError("operator must be > or <")
+        try:
+            threshold = float(threshold)
+        except (TypeError, ValueError):
+            raise RuleError("threshold must be a number, e.g. 35")
+        # The label carries what the alert is ABOUT, so a device alert reads
+        # "temperature" in the same column a camera alert reads "person".
+        label = property_key.lower()
+    else:
+        property_key = operator = threshold = device_code = None
 
     camera_id = field("cameraId", existing.camera_id if existing else None)
     if camera_id in ("", "any", "null"):
@@ -217,7 +277,12 @@ def validate(payload: dict, existing: AlertRule | None = None) -> dict:
 
     return {
         "name": name[:120],
-        "camera_id": camera_id,
+        "kind": kind,
+        "camera_id": camera_id if kind == "detection" else None,
+        "device_code": device_code,
+        "property_key": property_key,
+        "operator": operator,
+        "threshold": threshold,
         "label": label[:64],
         "min_confidence": min_confidence,
         "min_count": min_count,

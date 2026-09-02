@@ -33,7 +33,12 @@
     "model": "Model",
     "error": "Error",
     "never": "Never",
-    "all": "All"
+    "all": "All",
+    "close": "Close",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "reset": "Reset",
+    "zoomHelp": "Scroll to zoom, drag to pan, double-click to fit. Esc closes."
   },
   "devices": {
     "title": "Devices",
@@ -41,7 +46,27 @@
     "code": "Device code",
     "lastSeen": "Last seen",
     "properties": "Properties",
-    "noProperties": "No values reported yet"
+    "noProperties": "No values reported yet",
+    "addDevice": "Add a device",
+    "productKey": "Product key",
+    "topicHint": "A device publishes JSON to iot/{productKey}/{deviceCode}/properties over MQTT, using the product key and device code below - the exact topic updates as you type.",
+    "mqttConnect": "How this device connects",
+    "broker": "Broker",
+    "topicLabel": "Topic",
+    "payloadExample": "Example payload",
+    "confirmDelete": "Delete {name}? Its recorded property values are kept.",
+    "history": "History",
+    "lastHour": "Last hour",
+    "last6Hours": "Last 6 hours",
+    "lastDay": "Last 24 hours",
+    "lastWeek": "Last 7 days",
+    "chartHint": "Every reading is kept, so this is the real series, not a sample. Add a sensor threshold rule and its limit appears here as a line.",
+    "thresholdHint": "The dashed line is a sensor threshold rule. It shows why an alert fired - and how close the readings came the rest of the time.",
+    "selectHint": "Choose a sensor from the table below.",
+    "relatedRules": "Rules watching this property, configured on the Alerts page:",
+    "unregisteredTitle": "Unregistered devices reporting",
+    "unregisteredHint": "MQTT messages arrived for these device code / product key pairs, but no device is registered for them - probably a typo in firmware, or a device not added here yet. Add it above with the exact code and key shown and it starts appearing normally.",
+    "noRuleForProperty": "No sensor rule watches this property on this device. Add one on the Alerts page and its limit appears here as a line."
   },
   "cameras": {
     "title": "Cameras",
@@ -59,7 +84,9 @@
     "nameHint": "Shown in the interface. Any language.",
     "streamNotReady": "The stream is starting — the media server dials the camera on the first request.",
     "starting": "Starting the stream — the first play can take around 20 seconds while the camera connection is opened on demand.",
-    "startFailed": "Could not start the stream"
+    "startFailed": "Could not start the stream",
+    "stalledRetry": "The picture has not started — restarting the stream (attempt {attempt} of {max}).",
+    "stalledGiveUp": "The stream started but no picture arrived. Press Watch to try again."
   },
   "detections": {
     "title": "Detections",
@@ -96,12 +123,28 @@
     "cooldown": "Cooldown (seconds)",
     "cooldownHint": "After firing, stay quiet this long. Without it one cow raises an alert every frame.",
     "severity": "Severity",
+    "severityInfo": "Info",
+    "severityWarning": "Warning",
+    "severityCritical": "Critical",
     "anyCamera": "Any camera",
     "raised": "Raised",
     "acknowledge": "Acknowledge",
     "acknowledged": "Acknowledged",
+    "showingCount": "Showing {shown} of {total}",
+    "loadMore": "Load more",
     "noRules": "No rules yet — add one above.",
-    "deleteRule": "Delete this rule? Alerts it already raised are kept."
+    "deleteRule": "Delete this rule? Alerts it already raised are kept.",
+    "kind": "Rule type",
+    "kindDetection": "Camera detection",
+    "kindDevice": "Sensor threshold",
+    "device": "Device",
+    "anyDevice": "Any device",
+    "property": "Property",
+    "operator": "Condition",
+    "above": "above",
+    "below": "below",
+    "threshold": "Threshold",
+    "deviceHint": "Checked against the latest reading every few seconds. The property must match the key the device publishes, e.g. temperature or soilMoisture."
   },
   "ask": {
     "title": "Ask",
@@ -117,6 +160,7 @@
     "examples": {
       "ok": "Is everything ok?",
       "alerts": "Any alerts I should look at?",
+      "sensors": "Has any sensor reading crossed its threshold?",
       "tasks": "Which cameras are being analysed, and with which models?",
       "whyNoFire": "Why is fire not being detected on camera 4?",
       "fireToday": "Have you seen any fire today?",

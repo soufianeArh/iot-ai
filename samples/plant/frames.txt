@@ -1,0 +1,9 @@
+# Leaf close-ups for the plant-disease model. Healthy leaves are included on
+# purpose: a model that only ever sees diseased input cannot be shown to be
+# wrong, and this one DOES call a healthy corn leaf blighted at 0.70.
+corn-leaf-blight-01.png
+corn-leaf-blight-02.png
+corn-leaf-healthy-01.png
+tomato-leaf-blight-01.png
+tomato-leaf-blight-02.png
+tomato-leaf-healthy-01.png

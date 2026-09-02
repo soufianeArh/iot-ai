@@ -20,6 +20,16 @@ const hlsUrl = ref('')
 const videoEl = ref(null)
 let hls = null
 
+// Stall watchdog. hls.js can attach, parse the manifest and then sit there
+// with a black picture - the media server hands over a playlist whose segments
+// are not arriving yet, and nothing about that surfaces as an error. So after
+// attaching we check that the video is genuinely advancing, and if it is not,
+// tear the whole thing down and start again rather than leave a black box.
+const STALL_SECONDS = 10
+const MAX_RETRIES = 2
+let watchdog = null
+let attempt = 0
+
 const { error, loading, refresh } = usePoll(async () => {
   cameras.value = await api.cameras()
 })
@@ -49,8 +59,9 @@ async function probe(camera) {
   try { await api.probeCamera(camera.id); await refresh() } finally { busy.value = false }
 }
 
-async function watch(camera) {
-  stopWatching()
+async function watch(camera, isRetry = false) {
+  stopWatching(!isRetry)          // a retry keeps the attempt counter
+  if (!isRetry) attempt = 0
   busy.value = true
   status.value = t('cameras.starting')
   formError.value = ''
@@ -76,6 +87,7 @@ async function watch(camera) {
 
     status.value = ''
     await attach(info.hlsUrl)
+    armWatchdog(camera)
   } catch (e) {
     status.value = ''
     formError.value = `${t('cameras.startFailed')}: ${e.message}`
@@ -134,6 +146,37 @@ async function attach(url) {
   })
 }
 
+/**
+ * Give playback STALL_SECONDS to actually move, then restart it.
+ *
+ * currentTime is the test, not readyState: a stream can report enough data
+ * buffered while the clock never advances, which is exactly the black-box
+ * case. Comparing the clock against itself catches both "never started" and
+ * "started then froze".
+ */
+function armWatchdog(camera) {
+  clearTimeout(watchdog)
+  const startedAt = videoEl.value ? videoEl.value.currentTime : 0
+
+  watchdog = setTimeout(() => {
+    const el = videoEl.value
+    const moving = el && el.currentTime > startedAt + 0.2 && !el.ended
+
+    if (moving) {
+      armWatchdog(camera)         // healthy - keep watching for a later freeze
+      return
+    }
+    if (attempt >= MAX_RETRIES) {
+      status.value = ''
+      formError.value = t('cameras.stalledGiveUp')
+      return
+    }
+    attempt += 1
+    status.value = t('cameras.stalledRetry', { attempt, max: MAX_RETRIES })
+    watch(camera, true)
+  }, STALL_SECONDS * 1000)
+}
+
 function loadHlsJs() {
   return new Promise((resolve) => {
     const s = document.createElement('script')
@@ -144,14 +187,20 @@ function loadHlsJs() {
   })
 }
 
-function stopWatching() {
+function stopWatching(clearAttempts = true) {
+  clearTimeout(watchdog)
+  watchdog = null
   if (hls) { hls.destroy(); hls = null }
   if (videoEl.value) videoEl.value.removeAttribute('src')
-  watching.value = null
-  hlsUrl.value = ''
+  if (clearAttempts) {
+    attempt = 0
+    watching.value = null
+    hlsUrl.value = ''
+    status.value = ''
+  }
 }
 
-onUnmounted(stopWatching)
+onUnmounted(() => stopWatching())
 </script>
 
 <template>

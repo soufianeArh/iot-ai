@@ -91,6 +91,12 @@ def create_app() -> Flask:
     from app.services import autostart
     autostart.run(app)
 
+    # Device threshold rules: alert when a sensor reading crosses a limit.
+    # Polls device-service rather than subscribing to MQTT - see the module
+    # docstring for why, and what it costs.
+    from app.services import device_monitor
+    device_monitor.run(app)
+
     log.info("ai-service ready, db=%s", _database_url().split("@")[-1])
     return app
 

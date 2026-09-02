@@ -32,10 +32,19 @@ WORK="${WORK:-/tmp/build}"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$WORK/join.txt"
 
+# An optional frames.txt names the stills to use, one per line, in order.
+# Without it every image in the directory is taken, which breaks down as soon
+# as a directory holds both an original .png and a normalised .jpg of the same
+# photo - it would appear twice.
+if [ -f "$SRC/frames.txt" ]; then
+  LIST=$(grep -v '^[[:space:]]*#' "$SRC/frames.txt" | grep -v '^[[:space:]]*$'          | sed "s|^|$SRC/|")
+else
+  LIST=$(ls "$SRC"/*.png "$SRC"/*.jpg "$SRC"/*.jpeg 2>/dev/null)
+fi
+
 n=0
-for src in "$SRC"/*.png "$SRC"/*.jpg "$SRC"/*.jpeg; do
+for src in $LIST; do
   [ -e "$src" ] || continue
-  case "$(basename "$src")" in norm-*) continue ;; esac   # skip our own output
   n=$((n + 1))
   clip="$WORK/clip$(printf '%02d' "$n").mp4"
 

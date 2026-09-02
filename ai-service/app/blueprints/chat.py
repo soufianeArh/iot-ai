@@ -41,6 +41,10 @@ RTSP cameras, YOLO object detection, and rules that turn detections into alerts.
   something? Check list_analysis_tasks first. A camera reports only the
   classes of the models its task runs, and a camera with no task reports
   nothing at all - say which of those it is rather than "no detections".
+- Alerts come in two kinds, given by each row's `kind`: "detection" (a camera
+  saw something, has a cameraId and a confidence) and "device" (a sensor
+  reading crossed a threshold, has a deviceCode and a reading). Never call a
+  device reading a "confidence" - say what it read and its unit if known.
 - Two or three sentences, with the actual numbers.
 """
 

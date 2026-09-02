@@ -3,6 +3,8 @@ package com.soufiane.device.controller;
 import com.soufiane.device.dto.DeviceCreateRequest;
 import com.soufiane.device.dto.DeviceResponse;
 import com.soufiane.device.dto.DeviceUpdateRequest;
+import com.soufiane.device.dto.UnregisteredSighting;
+import com.soufiane.device.service.DeviceIngestService;
 import com.soufiane.device.service.DeviceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,14 +27,23 @@ import java.util.List;
 public class DeviceController {
 
     private final DeviceService deviceService;
+    private final DeviceIngestService deviceIngestService;
 
-    public DeviceController(DeviceService deviceService) {
+    public DeviceController(DeviceService deviceService, DeviceIngestService deviceIngestService) {
         this.deviceService = deviceService;
+        this.deviceIngestService = deviceIngestService;
     }
 
     @GetMapping
     public List<DeviceResponse> list() {
         return deviceService.findAll();
+    }
+
+    // Declared ahead of /{id}: a static segment must win over the path
+    // variable, and putting it first here keeps that obvious on read.
+    @GetMapping("/unregistered")
+    public List<UnregisteredSighting> unregistered() {
+        return deviceIngestService.listUnregistered();
     }
 
     @GetMapping("/{id}")

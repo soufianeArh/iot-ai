@@ -148,6 +148,59 @@ services:
     networks:
       - easyaiot-network
 
+  # A fake IoT device, the MQTT-side mirror of the fake cameras: publishes
+  # temperature, humidity and soil moisture on a loop so the devices page shows
+  # live data rather than whatever was last sent by hand.
+  #
+  # It publishes as an EXISTING device (pk-test / C900 = sensor-01).
+  # device-service drops messages from a device it does not know, which is
+  # correct - so if this ever appears to do nothing, check the device exists
+  # before suspecting the broker.
+  sample-device:
+    build:
+      context: ../sample-device
+    container_name: sample-device
+    restart: always
+    depends_on:
+      EMQX:
+        condition: service_healthy
+    environment:
+      - MQTT_HOST=EMQX
+      - PRODUCT_KEY=pk-test
+      - DEVICE_CODE=C900
+      - PUBLISH_INTERVAL_SECONDS=20
+      # A day per hour. At 600 the "last hour" chart showed six identical
+      # humps, which is what made the data look synthetic; at 3600 it shows
+      # one cycle, and the weather drift makes each day differ from the last.
+      - DAY_SECONDS=3600
+    networks:
+      - easyaiot-network
+
+  # A second sensor, in a greenhouse: same image, different device code.
+  #
+  # Warmer, damper, and a quarter-cycle ahead of the field sensor. Identical
+  # readings on two devices would look like one value written to two rows -
+  # and would hide the real bug where it actually was.
+  sample-device-2:
+    build:
+      context: ../sample-device
+    container_name: sample-device-2
+    restart: always
+    depends_on:
+      EMQX:
+        condition: service_healthy
+    environment:
+      - MQTT_HOST=EMQX
+      - PRODUCT_KEY=pk-test
+      - DEVICE_CODE=G210
+      - PUBLISH_INTERVAL_SECONDS=20
+      - DAY_SECONDS=3600
+      - PHASE_OFFSET_SECONDS=900     # a quarter of the cycle ahead
+      - TEMP_BIAS=4.5                # under glass, so warmer
+      - HUMIDITY_BIAS=12             # and damper
+    networks:
+      - easyaiot-network
+
   # ---- Phase 7: fake cameras, so YOLO has something real to detect ----
   # This is the cameras' own RTSP server, and it is SHARED: drone-camera
   # publishes to /drone and land-camera to /land on this one server. Point a
@@ -221,6 +274,27 @@ services:
     networks:
       - easyaiot-network
 
+  # A fourth fake camera: leaf close-ups for the plant-disease model.
+  #
+  # Honest about what this is: disease detection needs a leaf filling the
+  # frame, which no field camera provides - the lesions are millimetres across
+  # and simply are not in a wide shot. Treat this camera as an inspection
+  # bench rather than surveillance; the natural production shape is someone
+  # photographing a suspect leaf and uploading it.
+  plant-camera:
+    build:
+      context: ../sample-camera
+    container_name: plant-camera
+    restart: always
+    depends_on:
+      - sample-camera-rtsp
+    volumes:
+      - ../samples/plant:/samples:ro
+    environment:
+      - RTSP_TARGET=rtsp://sample-camera-rtsp:8554/plant
+    networks:
+      - easyaiot-network
+
   # ---- Phase 8b: local LLM runtime for the chat assistant ----
   # Ollama is the SERVER; the model is pulled into it separately and lives in
   # the named volume:
@@ -290,6 +364,14 @@ services:
       # fire class; "fire" detects fire and smoke and nothing else. A task
       # picks one: POST /ai/tasks/4?model=fire
       - YOLO_EXTRA_MODELS=fire=/models/fire.pt
+      # A transformers detection model, not Ultralytics weights: leaf disease
+      # is only published in that form. 30 PlantDoc classes - see
+      # models/plant-disease/README.md for what it can and cannot tell apart.
+      - HF_MODELS=plant=/models/plant-disease
+      # Per-model confidence floors. The plant model scores a genuine tomato
+      # blight at 0.569, which the global 0.65 would throw away before any rule
+      # saw it; the rules then filter properly with their own thresholds.
+      - MODEL_CONFIDENCE=plant=0.40
       # Tasks live in memory, so nothing analyses anything after a restart
       # until someone POSTs. This starts the ones that should always be on.
       # Format: "cameraId:model[,model]" entries separated by ';'.

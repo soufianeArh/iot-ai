@@ -1,0 +1,37 @@
+# Model weights: large binaries that belong on disk (docker-compose bind
+# mounts ../models read-only into ai-service), not in git history. GitHub
+# hard-blocks any single file over 100MB, and model.safetensors (117MB) is
+# exactly what forced the history rewrite that added this file.
+*.safetensors
+*.pt
+*.pth
+*.onnx
+*.h5
+
+# Dependencies: reinstallable from package.json, not something to track.
+node_modules/
+
+# Build output the dev workflow rebuilds locally (`npm run build`), EXCEPT
+# frontend/web/dist, which nginx serves via a read-only bind mount in
+# docker-compose and must stay tracked - that is not a "build artifact" here,
+# it's the actual deployed asset.
+dist/
+!web/dist/
+
+# Local env / secrets, never meant to leave this machine.
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise.
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python cache.
+__pycache__/
+*.pyc
+
+# Logs.
+*.log

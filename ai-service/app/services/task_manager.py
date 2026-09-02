@@ -25,7 +25,7 @@ class TaskError(Exception):
 
 
 def start(app, camera_id: int, rtsp_url: str, model_name: str = None,
-          interval: float = None) -> dict:
+          interval: float = None, jitter: float = None) -> dict:
     # Validated here, in the request thread, on purpose. get_model() runs
     # inside the worker, where an exception only lands in last_error and the
     # caller still gets 202 Accepted for a task that can never analyse a frame.
@@ -42,7 +42,7 @@ def start(app, camera_id: int, rtsp_url: str, model_name: str = None,
         if existing and existing.is_alive():
             return existing.status()               # idempotent
 
-        worker = InferenceWorker(app, camera_id, rtsp_url, model_name, interval)
+        worker = InferenceWorker(app, camera_id, rtsp_url, model_name, interval, jitter)
         worker.start()
         _workers[camera_id] = worker
         log.info("started analysis for camera %s", camera_id)

@@ -38,7 +38,17 @@ async function del(url) {
 export const api = {
   // devices
   devices: () => get('/api/devices'),
+  addDevice: (body) => post('/api/devices', body),
+  deleteDevice: (id) => del(`/api/devices/${id}`),
   deviceProperties: (id) => get(`/api/devices/${id}/properties`),
+  // Same endpoint: with `key` it returns that property's history, newest
+  // first, instead of the latest value of every property.
+  deviceHistory: (id, key, limit = 200) =>
+    get(`/api/devices/${id}/properties?key=${encodeURIComponent(key)}&limit=${limit}`),
+  // deviceCode/productKey pairs MQTT messages arrived for but that matched no
+  // registered device - a bad payload never touches the DB, so this is the
+  // only place that trace is visible instead of buried in a backend log.
+  unregisteredDevices: () => get('/api/devices/unregistered'),
 
   // cameras
   cameras: () => get('/video/camera'),

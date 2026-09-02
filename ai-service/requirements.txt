@@ -7,3 +7,9 @@ requests==2.32.3
 gunicorn==23.0.0
 ultralytics==8.3.40
 opencv-python-headless==4.10.0.84
+# Plant-disease detection. The usable agricultural models are published
+# as transformers checkpoints, not Ultralytics weights - see
+# models/plant-disease/README.md.
+transformers==4.46.3
+safetensors==0.4.5
+pillow==11.0.0

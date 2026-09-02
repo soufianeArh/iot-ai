@@ -1,0 +1,8 @@
+# Which stills go into loop.mp4, in order.
+bird-attack-01.png
+bird-attack-02.png
+cow-attack-01.png
+farm-fire-01.png
+flood-01.png
+one-person-farm-01.png
+people-farm-01.png

@@ -2,6 +2,7 @@ package com.soufiane.device.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soufiane.device.dto.UnregisteredSighting;
 import com.soufiane.device.entity.Device;
 import com.soufiane.device.entity.DeviceProperty;
 import com.soufiane.device.entity.DeviceStatus;
@@ -17,10 +18,12 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Turns raw MQTT messages into rows. Every failure path here logs and returns:
@@ -32,9 +35,16 @@ public class DeviceIngestService {
     private static final Logger log = LoggerFactory.getLogger(DeviceIngestService.class);
     private static final String TIMESTAMP_FIELD = "ts";
 
+    // In-memory only, not a table: this is a debugging aid ("your firmware is
+    // publishing somewhere nobody registered"), not data anyone needs kept
+    // across a restart. Capped so a noisy or malicious publisher spraying
+    // random topics can't grow it without bound.
+    private static final int MAX_TRACKED_UNREGISTERED = 200;
+
     private final DeviceRepository deviceRepository;
     private final DevicePropertyRepository devicePropertyRepository;
     private final ObjectMapper objectMapper;
+    private final Map<String, UnregisteredSighting> unregisteredSightings = new ConcurrentHashMap<>();
 
     public DeviceIngestService(DeviceRepository deviceRepository,
                                DevicePropertyRepository devicePropertyRepository,
@@ -138,14 +148,40 @@ public class DeviceIngestService {
         Optional<Device> device = deviceRepository.findByDeviceCode(deviceTopic.deviceCode());
         if (device.isEmpty()) {
             log.warn("MQTT {}: unknown deviceCode '{}', dropped", topic, deviceTopic.deviceCode());
+            recordUnregistered(deviceTopic.productKey(), deviceTopic.deviceCode(), "unknown_device");
             return Optional.empty();
         }
         if (!device.get().getProductKey().equals(deviceTopic.productKey())) {
             log.warn("MQTT {}: productKey mismatch (topic='{}', registered='{}'), dropped",
                     topic, deviceTopic.productKey(), device.get().getProductKey());
+            recordUnregistered(deviceTopic.productKey(), deviceTopic.deviceCode(), "product_key_mismatch");
             return Optional.empty();
         }
         return device;
+    }
+
+    private void recordUnregistered(String productKey, String deviceCode, String reason) {
+        String key = productKey + "/" + deviceCode;
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        unregisteredSightings.compute(key, (k, existing) -> existing == null
+                ? new UnregisteredSighting(productKey, deviceCode, reason, 1, now, now)
+                : new UnregisteredSighting(productKey, deviceCode, reason,
+                        existing.count() + 1, existing.firstSeenAt(), now));
+
+        if (unregisteredSightings.size() > MAX_TRACKED_UNREGISTERED) {
+            unregisteredSightings.entrySet().stream()
+                    .min(Comparator.comparing(e -> e.getValue().lastSeenAt()))
+                    .ifPresent(e -> unregisteredSightings.remove(e.getKey()));
+        }
+    }
+
+    /** Recently seen deviceCode/productKey pairs that MQTT messages arrived
+     *  for but that resolveDevice() could not match to a registered device -
+     *  newest first, so a fresh typo in firmware surfaces at the top. */
+    public List<UnregisteredSighting> listUnregistered() {
+        return unregisteredSightings.values().stream()
+                .sorted(Comparator.comparing(UnregisteredSighting::lastSeenAt).reversed())
+                .toList();
     }
 
     private OffsetDateTime readTimestamp(JsonNode root) {

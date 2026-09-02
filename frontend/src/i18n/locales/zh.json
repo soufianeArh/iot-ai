@@ -33,7 +33,12 @@
     "model": "模型",
     "error": "错误",
     "never": "从未",
-    "all": "全部"
+    "all": "全部",
+    "close": "关闭",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "reset": "重置",
+    "zoomHelp": "滚轮缩放，拖动平移，双击适应。按 Esc 关闭。"
   },
   "devices": {
     "title": "设备",
@@ -41,7 +46,27 @@
     "code": "设备编码",
     "lastSeen": "最后在线",
     "properties": "属性",
-    "noProperties": "尚未收到任何数值"
+    "noProperties": "尚未收到任何数值",
+    "addDevice": "添加设备",
+    "productKey": "产品密钥",
+    "topicHint": "设备通过 MQTT 将 JSON 发布到 iot/{productKey}/{deviceCode}/properties，使用下方填写的产品密钥和设备编码——具体主题会随输入实时更新。",
+    "mqttConnect": "该设备的连接方式",
+    "broker": "代理地址",
+    "topicLabel": "主题",
+    "payloadExample": "示例消息",
+    "confirmDelete": "删除 {name}？已记录的属性值会保留。",
+    "history": "历史",
+    "lastHour": "最近一小时",
+    "last6Hours": "最近 6 小时",
+    "lastDay": "最近 24 小时",
+    "lastWeek": "最近 7 天",
+    "chartHint": "每条读数都会保留，因此这是完整序列而非采样。添加传感器阈值规则后，其阈值会在此显示为一条线。",
+    "thresholdHint": "虚线是传感器阈值规则。它说明告警为何触发——以及其余时间读数离它有多近。",
+    "selectHint": "请从下方表格中选择一个传感器。",
+    "relatedRules": "监控该属性的规则（在告警页面配置）：",
+    "unregisteredTitle": "正在上报但尚未注册的设备",
+    "unregisteredHint": "收到了针对以下设备编码/产品密钥组合的 MQTT 消息，但没有与之匹配的已注册设备——很可能是固件中的拼写错误，或是尚未在此添加的设备。用下方显示的确切编码和密钥在上方添加它，之后即可正常显示。",
+    "noRuleForProperty": "该设备的此属性没有传感器规则。在告警页面添加一条，其阈值会在此显示为一条线。"
   },
   "cameras": {
     "title": "摄像头",
@@ -59,7 +84,9 @@
     "nameHint": "显示在界面中。任何语言均可。",
     "streamNotReady": "视频流正在启动——媒体服务器会在首次请求时连接摄像头。",
     "starting": "正在启动视频流——首次播放可能需要约 20 秒，其间会按需建立与摄像头的连接。",
-    "startFailed": "无法启动视频流"
+    "startFailed": "无法启动视频流",
+    "stalledRetry": "画面尚未出现——正在重启视频流（第 {attempt} 次，共 {max} 次）。",
+    "stalledGiveUp": "视频流已启动但没有画面。点击「观看」重试。"
   },
   "detections": {
     "title": "检测",
@@ -96,12 +123,28 @@
     "cooldown": "冷却时间（秒）",
     "cooldownHint": "触发后保持静默的时长。没有它，一头牛每帧都会触发一次告警。",
     "severity": "级别",
+    "severityInfo": "信息",
+    "severityWarning": "警告",
+    "severityCritical": "严重",
     "anyCamera": "任意摄像头",
     "raised": "触发时间",
     "acknowledge": "确认",
     "acknowledged": "已确认",
+    "showingCount": "显示 {shown} 条，共 {total} 条",
+    "loadMore": "加载更多",
     "noRules": "暂无规则——请在上方添加。",
-    "deleteRule": "删除此规则？已触发的告警会保留。"
+    "deleteRule": "删除此规则？已触发的告警会保留。",
+    "kind": "规则类型",
+    "kindDetection": "摄像头检测",
+    "kindDevice": "传感器阈值",
+    "device": "设备",
+    "anyDevice": "任意设备",
+    "property": "属性",
+    "operator": "条件",
+    "above": "高于",
+    "below": "低于",
+    "threshold": "阈值",
+    "deviceHint": "每隔几秒检查一次最新读数。属性必须与设备发布的键完全一致，例如 temperature 或 soilMoisture。"
   },
   "ask": {
     "title": "问答",
@@ -117,6 +160,7 @@
     "examples": {
       "ok": "一切正常吗？",
       "alerts": "有需要关注的告警吗？",
+      "sensors": "有没有传感器读数超过阈值？",
       "tasks": "哪些摄像头正在分析，使用什么模型？",
       "whyNoFire": "为什么 4 号摄像头没有检测到火？",
       "fireToday": "今天有没有发现火情？",

@@ -77,16 +77,34 @@ class AlertRule(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(120), nullable=False)
 
+    # "detection" (a camera saw something) or "device" (a sensor reading
+    # crossed a threshold). One table rather than two, because everything
+    # downstream - cooldown, severity, acknowledgement, the alerts list - is
+    # identical for both, and only the CONDITION differs.
+    kind = db.Column(db.String(16), nullable=False, default="detection", index=True)
+
     # NULL = applies to every camera. That is why it is nullable: one
     # "person detected anywhere" rule instead of one row per camera.
     camera_id = db.Column(db.Integer, nullable=True, index=True)
 
-    label = db.Column(db.String(64), nullable=False)          # "person", "bus", ...
+    # Nullable because a device rule has no label, and a detection rule has no
+    # threshold. Enforcing "the right ones for this kind" is validate()'s job:
+    # a CHECK constraint per kind would have to change every time a kind is
+    # added, and would fail at COMMIT rather than at the form.
+    label = db.Column(db.String(64), nullable=True)           # "person", "bus", ...
     min_confidence = db.Column(db.Float, nullable=False, default=0.5)
 
     # How many of that label must be in ONE frame.
     # min_count=3 turns "a person" into "a group".
     min_count = db.Column(db.Integer, nullable=False, default=1)
+
+    # ---- device rules only ----
+    # NULL device_code = any device reporting this property, which is what you
+    # want for "any sensor reading over 35" across a whole site.
+    device_code = db.Column(db.String(64), nullable=True, index=True)
+    property_key = db.Column(db.String(64), nullable=True)    # "temperature"
+    operator = db.Column(db.String(2), nullable=True)         # ">" or "<"
+    threshold = db.Column(db.Float, nullable=True)
 
     # The single most important column in this table. See rule_engine.py.
     cooldown_seconds = db.Column(db.Integer, nullable=False, default=60)
@@ -99,8 +117,13 @@ class AlertRule(db.Model):
         return {
             "id": self.id,
             "name": self.name,
+            "kind": self.kind,
             "cameraId": self.camera_id,          # null = any camera
             "label": self.label,
+            "deviceCode": self.device_code,      # null = any device
+            "propertyKey": self.property_key,
+            "operator": self.operator,
+            "threshold": self.threshold,
             "minConfidence": self.min_confidence,
             "minCount": self.min_count,
             "cooldownSeconds": self.cooldown_seconds,
@@ -128,10 +151,18 @@ class Alert(db.Model):
                         nullable=True, index=True)
     rule_name = db.Column(db.String(120), nullable=False)
 
-    camera_id = db.Column(db.Integer, nullable=False, index=True)
-    label = db.Column(db.String(64), nullable=False)
-    count = db.Column(db.Integer, nullable=False)             # how many in that frame
-    max_confidence = db.Column(db.Float, nullable=False)      # the best of them
+    # Nullable now: a device alert has no camera. Anything reading these must
+    # cope with one side being NULL - which is why to_dict() emits both and
+    # the UI keys off `kind`.
+    camera_id = db.Column(db.Integer, nullable=True, index=True)
+    device_code = db.Column(db.String(64), nullable=True, index=True)
+
+    label = db.Column(db.String(64), nullable=False)   # class name, or property
+    count = db.Column(db.Integer, nullable=False, default=1)
+    # For a device alert this carries the READING, not a confidence. Reusing
+    # the column keeps one alerts table and one list view; the name is wrong
+    # for half the rows, which is the price of that.
+    max_confidence = db.Column(db.Float, nullable=False)
     severity = db.Column(db.String(16), nullable=False)
 
     # The frame that triggered it - the reason a human can judge this in one
@@ -150,9 +181,14 @@ class Alert(db.Model):
             "ruleId": self.rule_id,
             "ruleName": self.rule_name,
             "cameraId": self.camera_id,
+            "deviceCode": self.device_code,
             "label": self.label,
             "count": self.count,
             "maxConfidence": round(self.max_confidence, 3),
+            # Same number, named for what it means on a device alert. The UI
+            # shows one or the other depending on which side is populated,
+            # rather than labelling a temperature "confidence".
+            "reading": round(self.max_confidence, 3) if self.device_code else None,
             "severity": self.severity,
             "snapshotUrl": f"/snapshots/{self.snapshot}" if self.snapshot else None,
             "raisedAt": self.raised_at.isoformat() if self.raised_at else None,

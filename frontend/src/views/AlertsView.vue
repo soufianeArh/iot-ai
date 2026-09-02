@@ -1,8 +1,11 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '../api'
 import { usePoll, fmtTime } from '../usePoll'
+import { labelText, modelText } from '../i18n/classLabels'
+import { severityText as severityTextRaw } from '../i18n/severity'
+import ImageLightbox from '../components/ImageLightbox.vue'
 
 const { t, locale } = useI18n()
 
@@ -14,29 +17,89 @@ const onlyOpen = ref(false)
 const busy = ref(false)
 const formError = ref('')
 
+// Pagination for the alerts table. The summary counts are unbounded (every
+// alert ever raised); the list was hard-capped at 50 with no way to reach
+// anything older. Growing the same `limit` each "load more" - rather than an
+// OFFSET - means every fetch is still just "the newest N", so a poll landing
+// mid-load can never duplicate or skip a row the way OFFSET pagination would
+// under a live-inserting table.
+const ALERTS_PAGE = 50
+const alertsLimit = ref(ALERTS_PAGE)
+// A full page back means there may be more; the exact total sits in
+// `summary` already; see `alertsTotal` below.
+const hasMoreAlerts = computed(() => alerts.value.length >= alertsLimit.value)
+// The `alerts` fetch here is only ever filtered by `acknowledged`, so it lines
+// up exactly with one of these two summary counts - never invent a number
+// the summary can't back up.
+const alertsTotal = computed(() =>
+  onlyOpen.value ? (summary.value.unacknowledged || 0) : (summary.value.total || 0))
+
+function loadMoreAlerts() {
+  alertsLimit.value += ALERTS_PAGE
+  refresh()
+}
+
+function toggleOnlyOpen() {
+  alertsLimit.value = ALERTS_PAGE
+  refresh()
+}
+
+// The alert snapshot open full-screen. Judging an alert means looking at the
+// frame that caused it, and a thumbnail is too small to do that.
+const zoomed = ref({ src: '', caption: '' })
+
+function openShot(a) {
+  zoomed.value = {
+    src: a.snapshotUrl,
+    caption: `${a.ruleName} · ${labelText(a.label, locale.value)} · ${t('common.camera')} ${a.cameraId}`,
+  }
+}
+
 // Real class names, fetched once. This is the whole reason the label field is
 // a dropdown: typed by hand, "vehicle" or "car" are accepted, saved, and then
 // never match anything - the rule looks healthy and silently never fires.
 const labels = ref({ all: [], byModel: {} })
 const freeText = ref(false)
 
+const devices = ref([])
+
 const blank = {
-  name: '', label: 'person', cameraId: '', minConfidence: 0.5,
-  minCount: 1, cooldownSeconds: 60, severity: 'WARNING',
+  name: '', kind: 'detection',
+  // detection
+  label: 'person', cameraId: '', minConfidence: 0.5, minCount: 1,
+  // device
+  deviceCode: '', propertyKey: 'temperature', operator: '>', threshold: 35,
+  // both
+  cooldownSeconds: 60, severity: 'WARNING',
 }
+
+// Whatever any sensor has actually reported, so the property box offers real
+// keys instead of asking the user to remember that it is "soilMoisture" and
+// not "soil_moisture" - the same silent-mismatch trap as the class labels.
+const propertyKeys = ref([])
 const form = ref({ ...blank })
 
 const { error, loading, refresh } = usePoll(async () => {
-  const [s, r, a, c] = await Promise.all([
+  const [s, r, a, c, d] = await Promise.all([
     api.alertSummary(),
     api.rules(),
-    api.alerts({ limit: 50, ...(onlyOpen.value ? { acknowledged: 'false' } : {}) }),
+    api.alerts({ limit: alertsLimit.value, ...(onlyOpen.value ? { acknowledged: 'false' } : {}) }),
     cameras.value.length ? Promise.resolve(cameras.value) : api.cameras(),
+    api.devices().catch(() => []),
   ])
   summary.value = s
   rules.value = r
   alerts.value = a
   cameras.value = c
+  devices.value = d
+
+  const keys = new Set(propertyKeys.value)
+  await Promise.all(d.map(async (dev) => {
+    try {
+      for (const p of await api.deviceProperties(dev.id)) keys.add(p.key)
+    } catch { /* a device with no readings yet contributes nothing */ }
+  }))
+  propertyKeys.value = [...keys].sort()
 })
 
 onMounted(async () => {
@@ -51,6 +114,7 @@ async function addRule() {
   try {
     const body = { ...form.value }
     body.cameraId = body.cameraId === '' ? null : Number(body.cameraId)
+    body.deviceCode = body.deviceCode === '' ? null : body.deviceCode
     await api.addRule(body)
     form.value = { ...blank }
     await refresh()
@@ -76,6 +140,8 @@ async function ack(alert) {
   await api.ackAlert(alert.id)
   await refresh()
 }
+
+const severityText = (sev) => severityTextRaw(sev, t)
 </script>
 
 <template>
@@ -97,7 +163,7 @@ async function ack(alert) {
     </div>
     <div v-for="(count, sev) in (summary.bySeverity || {})" :key="sev" class="card">
       <div class="stat">{{ $n(count, 'plain') }}</div>
-      <div class="stat-label"><span class="pill" :class="sev">{{ sev }}</span></div>
+      <div class="stat-label"><span class="pill" :class="sev">{{ severityText(sev) }}</span></div>
     </div>
   </div>
 
@@ -111,10 +177,23 @@ async function ack(alert) {
       </label>
 
       <label class="field">
+        <span>{{ t('alerts.kind') }}</span>
+        <select v-model="form.kind">
+          <option value="detection">{{ t('alerts.kindDetection') }}</option>
+          <option value="device">{{ t('alerts.kindDevice') }}</option>
+        </select>
+      </label>
+
+      <label v-if="form.kind === 'detection'" class="field">
         <span>{{ t('common.label') }}</span>
-        <select v-if="!freeText" v-model="form.label" class="ltr" dir="ltr" required>
-          <optgroup v-for="(classes, model) in labels.byModel" :key="model" :label="model">
-            <option v-for="c in classes" :key="model + c" :value="c">{{ c }}</option>
+        <!-- Not forced ltr/dir here: the displayed text is now translated for
+             reading, even though :value stays the raw English class name the
+             model actually outputs - only the free-text fallback below needs
+             the Latin, left-to-right typing constraint. -->
+        <select v-if="!freeText" v-model="form.label" required>
+          <optgroup v-for="(classes, model) in labels.byModel" :key="model"
+                    :label="modelText(model, locale)">
+            <option v-for="c in classes" :key="model + c" :value="c">{{ labelText(c, locale) }}</option>
           </optgroup>
         </select>
         <!-- Machine-facing: must match a class name byte for byte. -->
@@ -123,7 +202,7 @@ async function ack(alert) {
                autocapitalize="off" autocomplete="off" placeholder="person">
       </label>
 
-      <label class="field">
+      <label v-if="form.kind === 'detection'" class="field">
         <span>{{ t('common.camera') }}</span>
         <select v-model="form.cameraId">
           <option value="">{{ t('alerts.anyCamera') }}</option>
@@ -131,13 +210,48 @@ async function ack(alert) {
         </select>
       </label>
 
-      <label class="field">
+      <label v-if="form.kind === 'detection'" class="field">
         <span>{{ t('alerts.minConfidence') }}</span>
         <input v-model.number="form.minConfidence" type="number" step="0.05" min="0.05" max="1" class="ltr">
       </label>
-      <label class="field">
+      <label v-if="form.kind === 'detection'" class="field">
         <span>{{ t('alerts.minCount') }}</span>
         <input v-model.number="form.minCount" type="number" min="1" class="ltr">
+      </label>
+
+      <!-- ---- device rule fields ---- -->
+      <label v-if="form.kind === 'device'" class="field">
+        <span>{{ t('alerts.device') }}</span>
+        <select v-model="form.deviceCode">
+          <option value="">{{ t('alerts.anyDevice') }}</option>
+          <option v-for="d in devices" :key="d.id" :value="d.deviceCode">
+            {{ d.name }} ({{ d.deviceCode }})
+          </option>
+        </select>
+      </label>
+
+      <label v-if="form.kind === 'device'" class="field">
+        <span>{{ t('alerts.property') }}</span>
+        <!-- Machine-facing: must match the key the device publishes. -->
+        <input v-model="form.propertyKey" class="ltr" list="propertyKeys" required
+               dir="ltr" lang="en" spellcheck="false"
+               autocapitalize="off" autocomplete="off" placeholder="temperature">
+        <datalist id="propertyKeys">
+          <option v-for="k in propertyKeys" :key="k" :value="k"></option>
+        </datalist>
+      </label>
+
+      <label v-if="form.kind === 'device'" class="field">
+        <span>{{ t('alerts.operator') }}</span>
+        <select v-model="form.operator" class="ltr" dir="ltr">
+          <option value="&gt;">&gt; {{ t('alerts.above') }}</option>
+          <option value="&lt;">&lt; {{ t('alerts.below') }}</option>
+        </select>
+      </label>
+
+      <label v-if="form.kind === 'device'" class="field">
+        <span>{{ t('alerts.threshold') }}</span>
+        <input v-model.number="form.threshold" type="number" step="0.1" class="ltr" required>
       </label>
       <label class="field">
         <span>{{ t('alerts.cooldown') }}</span>
@@ -146,7 +260,9 @@ async function ack(alert) {
       <label class="field">
         <span>{{ t('alerts.severity') }}</span>
         <select v-model="form.severity">
-          <option>INFO</option><option>WARNING</option><option>CRITICAL</option>
+          <option value="INFO">{{ severityText('INFO') }}</option>
+          <option value="WARNING">{{ severityText('WARNING') }}</option>
+          <option value="CRITICAL">{{ severityText('CRITICAL') }}</option>
         </select>
       </label>
 
@@ -164,13 +280,14 @@ async function ack(alert) {
         {{ freeText ? t('alerts.labelPick') : t('alerts.labelFree') }}
       </button>
     </p>
+    <p v-if="form.kind === 'device'" class="hint">{{ t('alerts.deviceHint') }}</p>
     <p class="hint">{{ t('alerts.cooldownHint') }}</p>
     <p v-if="formError" class="error">{{ formError }}</p>
   </div>
 
   <div class="card">
     <h2>{{ t('alerts.rules') }}</h2>
-    <div class="table-wrap">
+    <div class="table-wrap scroll-rows" style="--rows: 12">
       <table>
         <thead>
           <tr>
@@ -187,12 +304,23 @@ async function ack(alert) {
         <tbody>
           <tr v-for="r in rules" :key="r.id" :style="r.enabled ? '' : 'opacity:.5'">
             <td>{{ r.name }}</td>
-            <td><code class="mono">{{ r.label }}</code></td>
-            <td>{{ r.cameraId ?? t('alerts.anyCamera') }}</td>
-            <td>{{ $n(r.minConfidence, 'decimal') }}</td>
-            <td>{{ r.minCount }}</td>
+            <td>
+              <!-- One column, two meanings: a class name for a detection rule,
+                   the property and threshold for a device rule. -->
+              <code v-if="r.kind === 'device'" class="mono">
+                {{ r.propertyKey }} {{ r.operator }} {{ r.threshold }}
+              </code>
+              <span v-else>{{ labelText(r.label, locale) }}</span>
+            </td>
+            <td>
+              {{ r.kind === 'device'
+                 ? (r.deviceCode || t('alerts.anyDevice'))
+                 : (r.cameraId ?? t('alerts.anyCamera')) }}
+            </td>
+            <td>{{ r.kind === 'device' ? '—' : $n(r.minConfidence, 'decimal') }}</td>
+            <td>{{ r.kind === 'device' ? '—' : r.minCount }}</td>
             <td>{{ r.cooldownSeconds }}s</td>
-            <td><span class="pill" :class="r.severity">{{ r.severity }}</span></td>
+            <td><span class="pill" :class="r.severity">{{ severityText(r.severity) }}</span></td>
             <td>
               <div class="row">
                 <button class="ghost" @click="toggle(r)">
@@ -213,10 +341,11 @@ async function ack(alert) {
   <div class="card">
     <h2>{{ t('alerts.title') }}</h2>
     <label class="row" style="margin-bottom:.6rem">
-      <input type="checkbox" v-model="onlyOpen" style="width:auto" @change="refresh">
+      <input type="checkbox" v-model="onlyOpen" style="width:auto" @change="toggleOnlyOpen">
       <span>{{ t('alerts.openAlerts') }}</span>
     </label>
-    <div class="table-wrap">
+    <!-- --row-h is larger here: every row carries a 68px thumbnail. -->
+    <div class="table-wrap scroll-rows" style="--rows: 8; --row-h: 5.4rem">
       <table>
         <thead>
           <tr>
@@ -232,12 +361,19 @@ async function ack(alert) {
         </thead>
         <tbody>
           <tr v-for="a in alerts" :key="a.id">
-            <td><img v-if="a.snapshotUrl" class="thumb" :src="a.snapshotUrl" :alt="a.label" loading="lazy"></td>
+            <td>
+              <img v-if="a.snapshotUrl" class="thumb clickable" :src="a.snapshotUrl"
+                   :alt="labelText(a.label, locale)" loading="lazy" @click="openShot(a)">
+            </td>
             <td>{{ a.ruleName }}</td>
-            <td>{{ a.cameraId }}</td>
-            <td><code class="mono">{{ a.label }}</code></td>
-            <td>{{ a.count }}</td>
-            <td><span class="pill" :class="a.severity">{{ a.severity }}</span></td>
+            <td>
+              <span v-if="a.deviceCode"><code class="mono">{{ a.deviceCode }}</code></span>
+              <span v-else>{{ a.cameraId }}</span>
+            </td>
+            <td>{{ labelText(a.label, locale) }}</td>
+            <!-- A device alert has no count; it has a reading. -->
+            <td>{{ a.reading !== null ? $n(a.reading, 'decimal') : a.count }}</td>
+            <td><span class="pill" :class="a.severity">{{ severityText(a.severity) }}</span></td>
             <td>{{ fmtTime(a.raisedAt, locale) }}</td>
             <td>
               <span v-if="a.acknowledged" class="pill ok">{{ t('alerts.acknowledged') }}</span>
@@ -250,5 +386,18 @@ async function ack(alert) {
         </tbody>
       </table>
     </div>
+
+    <!-- The number the table can't show on its own: the summary counts every
+         alert ever raised, the table only what has been paged in so far. -->
+    <div v-if="alerts.length" class="row" style="margin-top:.6rem; justify-content:space-between">
+      <span class="hint">{{ t('alerts.showingCount', { shown: alerts.length, total: alertsTotal }) }}</span>
+      <button v-if="hasMoreAlerts" class="ghost" type="button" :disabled="loading"
+              @click="loadMoreAlerts">
+        {{ t('alerts.loadMore') }}
+      </button>
+    </div>
   </div>
+
+  <ImageLightbox :src="zoomed.src" :caption="zoomed.caption"
+                 @close="zoomed = { src: '', caption: '' }" />
 </template>

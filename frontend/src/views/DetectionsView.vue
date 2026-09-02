@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '../api'
 import { usePoll, fmtTime } from '../usePoll'
+import { labelText, modelText } from '../i18n/classLabels'
+import ImageLightbox from '../components/ImageLightbox.vue'
 
 const { t, locale } = useI18n()
 
@@ -14,17 +16,38 @@ const shots = ref([])
 const chosen = ref({})      // cameraId -> model string selected in the dropdown
 const busy = ref(false)
 
+// The snapshot currently open full-screen. A 120px thumbnail cannot answer the
+// question these images exist for - whether the box is actually around a cow.
+const zoomed = ref({ src: '', caption: '' })
+
+function openShot(d) {
+  zoomed.value = {
+    src: d.snapshotUrl,
+    caption: `${labelText(d.label, locale.value)} ${d.confidence.toFixed(2)} · ${t('common.camera')} ${d.cameraId}`,
+  }
+}
+
 const { error, loading, refresh } = usePoll(async () => {
   const [cams, running, mods, sum, dets] = await Promise.all([
     api.cameras(),
     api.tasks(),
     models.value.length ? Promise.resolve(models.value) : api.models(),
     api.detectionSummary(1440),
-    api.detections({ limit: 12 }),
+    // 36, not 12: the grid caps at three rows and scrolls, so a dozen
+    // thumbnails fitted entirely inside the cap and there was nothing to
+    // scroll to - the limit, not the layout, was the constraint.
+    api.detections({ limit: 36 }),
   ])
   cameras.value = cams
   tasks.value = Object.fromEntries(running.map((x) => [x.cameraId, x]))
   models.value = mods
+
+  // Preselect, or the <select> renders blank: nothing is bound, so the box
+  // looks empty and pressing Start sends no model at all - silently falling
+  // back to `default` and taking any fire or plant rule down with it.
+  for (const camera of cams) {
+    if (!chosen.value[camera.id]) chosen.value[camera.id] = 'default'
+  }
   summary.value = sum
   shots.value = dets
 })
@@ -84,10 +107,12 @@ async function stop(cameraId) {
             <td class="hint">{{ tasks[c.id]?.lastError || '' }}</td>
             <td>
               <!-- Running: show what it is actually using, which is the only
-                   way to notice a camera started on the wrong weights. -->
-              <code v-if="tasks[c.id]?.running" class="mono">{{ tasks[c.id].model }}</code>
-              <select v-else v-model="chosen[c.id]" class="ltr" dir="ltr">
-                <option v-for="m in modelOptions()" :key="m" :value="m">{{ m }}</option>
+                   way to notice a camera started on the wrong weights.
+                   Translated for reading, same as the picker below -
+                   :value/the API payload always stay the raw model key. -->
+              <span v-if="tasks[c.id]?.running">{{ modelText(tasks[c.id].model, locale) }}</span>
+              <select v-else v-model="chosen[c.id]">
+                <option v-for="m in modelOptions()" :key="m" :value="m">{{ modelText(m, locale) }}</option>
               </select>
             </td>
             <td>
@@ -110,7 +135,7 @@ async function stop(cameraId) {
 
   <div class="card">
     <h2>{{ t('detections.byLabel') }}</h2>
-    <div class="table-wrap">
+    <div class="table-wrap scroll-rows" style="--rows: 10">
       <table>
         <thead>
           <tr><th>{{ t('common.camera') }}</th><th>{{ t('common.label') }}</th><th>{{ t('common.count') }}</th></tr>
@@ -118,7 +143,7 @@ async function stop(cameraId) {
         <tbody>
           <tr v-for="(r, i) in summary" :key="i">
             <td>{{ r.cameraId }}</td>
-            <td><code class="mono">{{ r.label }}</code></td>
+            <td>{{ labelText(r.label, locale) }}</td>
             <td>{{ $n(r.count, 'plain') }}</td>
           </tr>
           <tr v-if="!summary.length"><td colspan="3" class="hint">{{ t('common.none') }}</td></tr>
@@ -129,11 +154,14 @@ async function stop(cameraId) {
 
   <div class="card">
     <h2>{{ t('detections.recentFrames') }}</h2>
-    <div class="grid">
+    <!-- --row-h is the height of one figure: a 68px thumbnail plus its caption
+         and the grid gap. Three of those, then it scrolls. -->
+    <div class="grid scroll-rows" style="--rows: 3; --row-h: 7.2rem">
       <figure v-for="d in shots" :key="d.id" style="margin:0">
-        <img v-if="d.snapshotUrl" class="thumb" :src="d.snapshotUrl" :alt="d.label" loading="lazy">
+        <img v-if="d.snapshotUrl" class="thumb clickable" :src="d.snapshotUrl"
+             :alt="labelText(d.label, locale)" loading="lazy" @click="openShot(d)">
         <figcaption class="hint">
-          <code class="mono">{{ d.label }}</code>
+          {{ labelText(d.label, locale) }}
           {{ $n(d.confidence, 'decimal') }}
           · {{ t('common.camera') }} {{ d.cameraId }}
           · {{ fmtTime(d.detectedAt, locale) }}
@@ -142,4 +170,7 @@ async function stop(cameraId) {
     </div>
     <p v-if="!shots.length" class="hint">{{ t('common.none') }}</p>
   </div>
+
+  <ImageLightbox :src="zoomed.src" :caption="zoomed.caption"
+                 @close="zoomed = { src: '', caption: '' }" />
 </template>

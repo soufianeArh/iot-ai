@@ -49,7 +49,11 @@ def start_task(camera_id):
     body = request.get_json(silent=True) or {}
     model_name = request.args.get("model") or body.get("model")
     interval = request.args.get("interval", type=float) or body.get("interval")
-    return jsonify(task_manager.start(app, camera_id, url, model_name, interval)), 202
+    # Randomises the wait between frames. Only needed when the source itself
+    # loops - see InferenceWorker.jitter.
+    jitter = request.args.get("jitter", type=float) or body.get("jitter")
+    return jsonify(
+        task_manager.start(app, camera_id, url, model_name, interval, jitter)), 202
 
 
 @analysis_bp.route("/tasks/<int:camera_id>", methods=["DELETE"])
@@ -88,7 +92,12 @@ def list_labels():
     out = {}
     for name in detector.available():
         try:
-            out[name] = sorted(detector.get_model(name).names.values())
+            # class_names(), not get_model().names: only Ultralytics models
+            # expose .names. A transformers model keeps its labels in
+            # config.id2label, and reaching for .names silently produced an
+            # empty class list for the plant model - the dropdown offered
+            # nothing and looked like the model had no classes.
+            out[name] = sorted(detector.class_names(name).values())
         except Exception as exc:
             log.warning("could not load model %s for labels: %s", name, exc)
             out[name] = []

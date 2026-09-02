@@ -1,0 +1,3 @@
+# One video, not a list of stills - see ../build_loop.sh for why.
+# 6 leaf close-ups x 4s = a 24s loop.
+file 'loop.mp4'

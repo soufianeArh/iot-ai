@@ -95,13 +95,23 @@ def recent_detections(label: str = None, camera_id: int = None,
 
 # ---------------------------------------------------------------------- alerts
 
-def search_alerts(camera_id: int = None, severity: str = None,
+def search_alerts(camera_id: int = None, kind: str = None, severity: str = None,
                   acknowledged: bool = None, since_minutes: int = None,
                   limit: int = 10) -> dict:
-    """Alerts, filtered. acknowledged=false is 'what still needs attention'."""
+    """Alerts, filtered. acknowledged=false is 'what still needs attention'.
+
+    Covers both alert kinds: a camera detection (count of a label in a frame)
+    and a device sensor threshold (a reading that crossed a limit). The two
+    need different wording - "3 x person" reads fine, "3 x temperature" does
+    not - so each row is built from its own kind rather than one shared shape.
+    """
     query = Alert.query
     if camera_id is not None:
         query = query.filter(Alert.camera_id == camera_id)
+    if kind == "device":
+        query = query.filter(Alert.device_code.isnot(None))
+    elif kind == "detection":
+        query = query.filter(Alert.device_code.is_(None))
     if severity:
         query = query.filter(Alert.severity == severity.upper())
     if acknowledged is not None:
@@ -111,12 +121,23 @@ def search_alerts(camera_id: int = None, severity: str = None,
 
     rows = (query.order_by(Alert.raised_at.desc())
             .limit(min(int(limit), MAX_ROWS)).all())
+
+    def _describe(a: Alert) -> dict:
+        if a.device_code:
+            # max_confidence holds the READING here, not a 0-1 confidence -
+            # calling it that to the model would read as a sensor at 87%
+            # confidence, which is meaningless.
+            return {"kind": "device", "deviceCode": a.device_code,
+                    "what": f"{a.label} = {round(a.max_confidence, 2)}",
+                    "reading": round(a.max_confidence, 2)}
+        return {"kind": "detection", "cameraId": a.camera_id,
+                "what": f"{a.count} x {a.label}",
+                "confidence": round(a.max_confidence, 2)}
+
     return {
         "matched": query.count(),
-        "alerts": [{"id": a.id, "rule": a.rule_name, "cameraId": a.camera_id,
-                    "severity": a.severity, "what": f"{a.count} x {a.label}",
-                    "confidence": round(a.max_confidence, 2),
-                    "acknowledged": a.acknowledged,
+        "alerts": [{"id": a.id, "rule": a.rule_name, **_describe(a),
+                    "severity": a.severity, "acknowledged": a.acknowledged,
                     "raisedAt": a.raised_at.isoformat()} for a in rows],
     }
 
@@ -306,13 +327,21 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "search_alerts",
-            "description": ("Alerts raised by the rules. Use for 'any alerts', "
+            "description": ("Alerts raised by the rules - both a camera detection "
+                            "(count of a label in a frame) and a device sensor "
+                            "threshold (a reading that crossed a limit, e.g. "
+                            "temperature or soilMoisture). Each row's `kind` field "
+                            "says which; a device row has no camera and its number "
+                            "is the reading, not a confidence. Use for 'any alerts', "
                             "'what needs attention' (acknowledged=false), "
-                            "'what fired in the last hour' (since_minutes=60)."),
+                            "'what fired in the last hour' (since_minutes=60), "
+                            "'any sensor over its limit' (kind=device)."),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "camera_id": {"type": "integer"},
+                    "kind": {"type": "string", "enum": ["detection", "device"],
+                             "description": "restrict to camera detections or device sensor thresholds"},
                     "severity": {"type": "string", "enum": ["INFO", "WARNING", "CRITICAL"]},
                     "acknowledged": {"type": "boolean",
                                      "description": "false = still open / unhandled"},

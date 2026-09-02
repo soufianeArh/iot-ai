@@ -33,7 +33,12 @@
     "model": "Modèle",
     "error": "Erreur",
     "never": "Jamais",
-    "all": "Tout"
+    "all": "Tout",
+    "close": "Fermer",
+    "zoomIn": "Agrandir",
+    "zoomOut": "Réduire",
+    "reset": "Réinitialiser",
+    "zoomHelp": "Molette pour zoomer, glisser pour déplacer, double-clic pour ajuster. Échap ferme."
   },
   "devices": {
     "title": "Appareils",
@@ -41,7 +46,27 @@
     "code": "Code appareil",
     "lastSeen": "Vu pour la dernière fois",
     "properties": "Propriétés",
-    "noProperties": "Aucune valeur reçue"
+    "noProperties": "Aucune valeur reçue",
+    "addDevice": "Ajouter un appareil",
+    "productKey": "Clé produit",
+    "topicHint": "Un appareil publie du JSON sur iot/{productKey}/{deviceCode}/properties en MQTT, avec la clé produit et le code appareil ci-dessous - le sujet exact se met à jour au fur et à mesure.",
+    "mqttConnect": "Comment cet appareil se connecte",
+    "broker": "Broker",
+    "topicLabel": "Sujet",
+    "payloadExample": "Exemple de message",
+    "confirmDelete": "Supprimer {name} ? Les valeurs déjà enregistrées sont conservées.",
+    "history": "Historique",
+    "lastHour": "Dernière heure",
+    "last6Hours": "6 dernières heures",
+    "lastDay": "24 dernières heures",
+    "lastWeek": "7 derniers jours",
+    "chartHint": "Toutes les mesures sont conservées : ceci est la série réelle, pas un échantillon. Ajoutez une règle de seuil et sa limite apparaîtra ici sous forme de ligne.",
+    "thresholdHint": "La ligne pointillée est un seuil de capteur. Elle montre pourquoi une alerte s'est déclenchée — et à quel point les mesures s'en sont approchées le reste du temps.",
+    "selectHint": "Choisissez un capteur dans le tableau ci-dessous.",
+    "relatedRules": "Règles surveillant cette propriété, configurées dans Alertes :",
+    "unregisteredTitle": "Appareils non enregistrés qui publient",
+    "unregisteredHint": "Des messages MQTT sont arrivés pour ces combinaisons code appareil / clé produit, mais aucun appareil n'y correspond - probablement une faute de frappe dans le firmware, ou un appareil pas encore ajouté ici. Ajoutez-le ci-dessus avec le code et la clé exacts indiqués et il apparaîtra normalement.",
+    "noRuleForProperty": "Aucune règle de capteur ne surveille cette propriété sur cet appareil. Ajoutez-en une dans Alertes et sa limite apparaîtra ici sous forme de ligne."
   },
   "cameras": {
     "title": "Caméras",
@@ -59,7 +84,9 @@
     "nameHint": "Affiché dans l'interface. Toute langue.",
     "streamNotReady": "Le flux démarre — le serveur média contacte la caméra à la première demande.",
     "starting": "Démarrage du flux — la première lecture peut prendre une vingtaine de secondes, le temps d'ouvrir la connexion à la caméra.",
-    "startFailed": "Impossible de démarrer le flux"
+    "startFailed": "Impossible de démarrer le flux",
+    "stalledRetry": "L'image n'a pas démarré — redémarrage du flux (tentative {attempt} sur {max}).",
+    "stalledGiveUp": "Le flux a démarré mais aucune image n'est arrivée. Cliquez sur Regarder pour réessayer."
   },
   "detections": {
     "title": "Détections",
@@ -96,12 +123,28 @@
     "cooldown": "Délai de garde (secondes)",
     "cooldownHint": "Après déclenchement, rester silencieux pendant ce temps. Sans cela, une vache déclenche une alerte à chaque image.",
     "severity": "Gravité",
+    "severityInfo": "Info",
+    "severityWarning": "Avertissement",
+    "severityCritical": "Critique",
     "anyCamera": "Toutes les caméras",
     "raised": "Déclenchée",
     "acknowledge": "Acquitter",
     "acknowledged": "Acquittée",
+    "showingCount": "{shown} affichées sur {total}",
+    "loadMore": "Charger plus",
     "noRules": "Aucune règle — ajoutez-en une ci-dessus.",
-    "deleteRule": "Supprimer cette règle ? Les alertes déjà déclenchées sont conservées."
+    "deleteRule": "Supprimer cette règle ? Les alertes déjà déclenchées sont conservées.",
+    "kind": "Type de règle",
+    "kindDetection": "Détection caméra",
+    "kindDevice": "Seuil de capteur",
+    "device": "Appareil",
+    "anyDevice": "Tout appareil",
+    "property": "Propriété",
+    "operator": "Condition",
+    "above": "au-dessus de",
+    "below": "en dessous de",
+    "threshold": "Seuil",
+    "deviceHint": "Vérifié sur la dernière valeur toutes les quelques secondes. La propriété doit correspondre à la clé publiée par l'appareil, par exemple temperature ou soilMoisture."
   },
   "ask": {
     "title": "Assistant",
@@ -117,6 +160,7 @@
     "examples": {
       "ok": "Est-ce que tout va bien ?",
       "alerts": "Y a-t-il des alertes à regarder ?",
+      "sensors": "Un capteur a-t-il dépassé son seuil ?",
       "tasks": "Quelles caméras sont analysées, et avec quels modèles ?",
       "whyNoFire": "Pourquoi le feu n'est-il pas détecté sur la caméra 4 ?",
       "fireToday": "Avez-vous vu du feu aujourd'hui ?",
