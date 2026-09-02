@@ -2,7 +2,6 @@ services:
   # PostgresSQL Server
   PostgresSQL:
     image: postgres:18
-    container_name: postgres-server
     restart: always
     ports:
       - "0.0.0.0:5434:5432"
@@ -24,7 +23,6 @@ services:
   # Redis Server
   Redis:
     image: redis:7.4.8
-    container_name: redis-server
     restart: always
     ports:
       - "0.0.0.0:6379:6379"
@@ -55,7 +53,6 @@ services:
   # EMQX MQTT broker (Phase 4) - dashboard on http://localhost:18083
   EMQX:
     image: emqx/emqx:5.8.7
-    container_name: emqx-server
     restart: always
     ports:
       - "1883:1883"    # MQTT
@@ -81,7 +78,6 @@ services:
   device-service:
     build:
       context: ../device-service
-    container_name: device-service
     restart: always
     depends_on:
       PostgresSQL:
@@ -108,7 +104,6 @@ services:
   # MediaMTX media server (Phase 6): RTSP in -> HLS/WebRTC out
   mediamtx:
     image: bluenviron/mediamtx:latest
-    container_name: mediamtx
     restart: always
     volumes:
       - ../media/mediamtx.yml:/mediamtx.yml:ro
@@ -128,7 +123,6 @@ services:
   video-service:
     build:
       context: ../video-service
-    container_name: video-service
     restart: always
     depends_on:
       PostgresSQL:
@@ -159,7 +153,6 @@ services:
   sample-device:
     build:
       context: ../sample-device
-    container_name: sample-device
     restart: always
     depends_on:
       EMQX:
@@ -184,7 +177,6 @@ services:
   sample-device-2:
     build:
       context: ../sample-device
-    container_name: sample-device-2
     restart: always
     depends_on:
       EMQX:
@@ -208,7 +200,6 @@ services:
   # nothing downstream knows the difference.
   sample-camera-rtsp:
     image: bluenviron/mediamtx:latest
-    container_name: sample-camera-rtsp
     restart: always
     expose:
       - "8554"
@@ -239,7 +230,6 @@ services:
   drone-camera:
     build:
       context: ../sample-camera
-    container_name: drone-camera
     restart: always
     depends_on:
       - sample-camera-rtsp
@@ -263,7 +253,6 @@ services:
   land-camera:
     build:
       context: ../sample-camera
-    container_name: land-camera
     restart: always
     depends_on:
       - sample-camera-rtsp
@@ -284,7 +273,6 @@ services:
   plant-camera:
     build:
       context: ../sample-camera
-    container_name: plant-camera
     restart: always
     depends_on:
       - sample-camera-rtsp
@@ -305,7 +293,6 @@ services:
   # at Groq/OpenAI/Anthropic instead by changing LLM_BASE_URL alone.
   ollama:
     image: ollama/ollama:latest
-    container_name: ollama
     # NOT "always": this host cannot afford a local model alongside the stack,
     # so the chat runs on a hosted API and this service is opt-in. With
     # restart: always it came back on every Docker restart and quietly ate the
@@ -337,7 +324,6 @@ services:
   ai-service:
     build:
       context: ../ai-service
-    container_name: ai-service
     restart: always
     depends_on:
       PostgresSQL:
@@ -419,7 +405,6 @@ services:
   maintenance:
     build:
       context: ../ops
-    container_name: maintenance
     restart: always
     depends_on:
       PostgresSQL:
@@ -446,7 +431,6 @@ services:
   # Nginx - the single front door (Phase 3)
   nginx:
     image: nginx:1.27-alpine
-    container_name: nginx
     restart: always
     depends_on:
       device-service:
