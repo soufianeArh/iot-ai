@@ -413,6 +413,36 @@ services:
     networks:
       - easyaiot-network
 
+  # Housekeeping: nightly DB retention + backup. Two independent cron jobs in
+  # one small container - see ../ops/README.md for what each does and why
+  # they must never be coupled to each other.
+  maintenance:
+    build:
+      context: ../ops
+    container_name: maintenance
+    restart: always
+    depends_on:
+      PostgresSQL:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@PostgresSQL:5432/${POSTGRES_DB}
+      - SNAPSHOT_DIR=/snapshots
+      - BACKUP_DIR=/backups
+      - RETENTION_DAYS=30
+      - MAX_DETECTIONS_PER_CAMERA=500
+      - BACKUP_DAILY_KEEP=7
+      - BACKUP_WEEKLY_KEEP=4
+      - BACKUP_MONTHLY_KEEP=12
+    volumes:
+      # Read-write: retention.py deletes files here for detections it purges.
+      - snapshots:/snapshots
+      # Bind mount, not a named volume: backups need to be easy to scp/rsync
+      # off the host by hand - a named volume buries them in Docker's own
+      # storage path instead of somewhere you'd actually go copy them from.
+      - ../backups:/backups
+    networks:
+      - easyaiot-network
+
   # Nginx - the single front door (Phase 3)
   nginx:
     image: nginx:1.27-alpine

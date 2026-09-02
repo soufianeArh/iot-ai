@@ -18,6 +18,9 @@ node_modules/
 dist/
 !web/dist/
 
+# Database dumps from ops/backup.py - full DB contents, never belong in git.
+backups/
+
 # Local env / secrets, never meant to leave this machine.
 .env
 .env.*
