@@ -585,7 +585,7 @@ services:
     healthcheck:
       # 127.0.0.1 not localhost: localhost resolves to [::1] in this image and
       # nginx `listen 80` binds IPv4 only -> the check would always fail.
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
