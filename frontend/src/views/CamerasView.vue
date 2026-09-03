@@ -133,7 +133,18 @@ async function attach(url) {
     return
   }
 
-  hls = new window.Hls({ liveDurationInfinity: true })
+  hls = new window.Hls({
+    liveDurationInfinity: true,
+    // hls.js's own requests do NOT automatically carry the browser's cached
+    // Basic Auth credentials the way a plain fetch()/XHR from the page does
+    // (see warm() above, which sets this explicitly for exactly that reason)
+    // - without this, the manifest/segment requests 401 even though warm()
+    // just proved the same URL reachable. same-origin, not include: this
+    // never needs to send credentials to a different origin.
+    xhrSetup: (xhr) => { xhr.withCredentials = true },
+    fetchSetup: (context, initParams) =>
+      new Request(context.url, { ...initParams, credentials: 'same-origin' }),
+  })
   hls.loadSource(url)
   hls.attachMedia(el)
   // autoplay never fires without a src, so playback is started explicitly
