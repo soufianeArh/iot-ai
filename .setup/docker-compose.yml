@@ -374,8 +374,15 @@ services:
       - OLLAMA_KEEP_ALIVE=5m
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_NUM_PARALLEL=1
-    # Same reasoning as ai-service: inference must never starve the healthchecks.
-    cpus: 2.0
+    # CPU-only inference is genuinely core-bound: llama.cpp parallelizes
+    # matrix ops across whatever cores the container can see, so a tight cap
+    # here directly costs latency, not just fairness. 2.0 was set from dev's
+    # own 8-core budget (see ai-service's own cpus: 4.0 next to it) and never
+    # revisited for a deploy target with more headroom - on a 20-core host
+    # that was measured mostly idle, it left real speed on the table. Still
+    # capped, not unlimited: inference must never be able to starve the
+    # healthchecks of ai-service or anything else in this stack.
+    cpus: ${OLLAMA_CPUS:-2.0}
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
       interval: 15s
