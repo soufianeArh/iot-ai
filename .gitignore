@@ -26,6 +26,10 @@ backups/
 .env.*
 !.env.example
 
+# nginx Basic Auth credentials - same reasoning as .env: a real secret,
+# generated per-deploy, never committed.
+web/conf/.htpasswd
+
 # Editor / OS noise.
 .vscode/
 .idea/

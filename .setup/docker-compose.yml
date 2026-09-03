@@ -570,6 +570,8 @@ services:
       - "${NGINX_HOST_PORT:-80}:80"
     volumes:
       - ../web/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
+      # Never committed - generated per-deploy, see .gitignore.
+      - ../web/conf/.htpasswd:/etc/nginx/.htpasswd:ro
       # Phase 9: the built Vue app is what "/" serves. Built on the host with
       # `npm run build` in frontend/ - there is no Node in production, nginx
       # just serves the static output.
