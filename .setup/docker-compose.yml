@@ -3,6 +3,11 @@ services:
   PostgresSQL:
     image: postgres:18
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     ports:
       - "0.0.0.0:5434:5432"
     environment:
@@ -24,6 +29,11 @@ services:
   Redis:
     image: redis:7.4.8
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     ports:
       - "0.0.0.0:6379:6379"
     command: >
@@ -54,6 +64,11 @@ services:
   EMQX:
     image: emqx/emqx:5.8.7
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     ports:
       - "1883:1883"    # MQTT
       - "18083:18083"  # Dashboard
@@ -79,6 +94,11 @@ services:
     build:
       context: ../device-service
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       PostgresSQL:
         condition: service_healthy
@@ -105,6 +125,11 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     volumes:
       - ../media/mediamtx.yml:/mediamtx.yml:ro
     ports:
@@ -124,6 +149,11 @@ services:
     build:
       context: ../video-service
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       PostgresSQL:
         condition: service_healthy
@@ -154,6 +184,11 @@ services:
     build:
       context: ../sample-device
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       EMQX:
         condition: service_healthy
@@ -178,6 +213,11 @@ services:
     build:
       context: ../sample-device
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       EMQX:
         condition: service_healthy
@@ -201,6 +241,11 @@ services:
   sample-camera-rtsp:
     image: bluenviron/mediamtx:latest
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     expose:
       - "8554"
     networks:
@@ -231,6 +276,11 @@ services:
     build:
       context: ../sample-camera
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       - sample-camera-rtsp
     # Mounted, not baked in: the images can be regenerated without a rebuild.
@@ -254,6 +304,11 @@ services:
     build:
       context: ../sample-camera
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       - sample-camera-rtsp
     volumes:
@@ -274,6 +329,11 @@ services:
     build:
       context: ../sample-camera
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       - sample-camera-rtsp
     volumes:
@@ -299,6 +359,11 @@ services:
     # memory that was the reason for switching away from it.
     # Start it deliberately: docker compose up -d ollama
     restart: "no"
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     expose:
       - "11434"
     volumes:
@@ -325,6 +390,11 @@ services:
     build:
       context: ../ai-service
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       PostgresSQL:
         condition: service_healthy
@@ -406,6 +476,11 @@ services:
     build:
       context: ../ops
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       PostgresSQL:
         condition: service_healthy
@@ -432,6 +507,11 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: always
+    # Explicit, not relying on the daemon default: a deploy target may set its
+    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
+    # on the same host - this stack needs none of that, and pinning runc here
+    # keeps it working regardless of what the daemon default is set to.
+    runtime: runc
     depends_on:
       device-service:
         condition: service_healthy
