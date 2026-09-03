@@ -385,6 +385,32 @@ services:
     networks:
       - easyaiot-network
 
+  # One-shot: loads the model into ollama's memory the moment it is healthy,
+  # so the first real chat request is never the one paying the cold-load cost
+  # (measured ~105s for qwen2.5:7b on CPU - long enough to 524 through a
+  # Cloudflare quick tunnel, whose ~100s edge timeout cannot be raised).
+  # Same image as ollama itself - no new dependency - with its entrypoint
+  # overridden to run the CLIENT (`ollama run`) against the already-running
+  # server instead of starting another server. Exits either way (`|| true`):
+  # a failed warmup should cost the first request some latency, not block
+  # the deploy.
+  #
+  # opt-in, same as ollama: docker compose up -d ollama-warmup
+  # (pulls ollama up too, via depends_on, if it is not already running)
+  ollama-warmup:
+    image: ollama/ollama:latest
+    restart: "no"
+    runtime: runc
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - LLM_MODEL=${LLM_MODEL:-qwen2.5:1.5b}
+    entrypoint: ["sh", "-c", "ollama run \"$$LLM_MODEL\" 'reply with OK' || true"]
+    networks:
+      - easyaiot-network
+
   # AI Service (Python) - YOLO inference workers
   ai-service:
     build:
