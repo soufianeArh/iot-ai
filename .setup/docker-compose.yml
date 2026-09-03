@@ -440,15 +440,19 @@ services:
       # To go back to fully-offline, uncomment the ollama service below and
       # swap these three lines - no code changes.
       - DEVICE_SERVICE_URL=http://device-service:8080
-      - LLM_BASE_URL=https://api.groq.com/openai/v1
+      # Provider-agnostic, and now environment-agnostic too: these three
+      # default to the hosted Groq setup dev has always used, so a dev .env
+      # with only GROQ_API_KEY set needs no change at all. Any specific
+      # deploy overrides LLM_BASE_URL/LLM_MODEL/LLM_API_KEY directly in ITS
+      # OWN .env when it needs a different backend - e.g. a deploy target
+      # where Groq turns out to be platform-blocked (a 403 at Cloudflare's
+      # edge, not a bad key) can point at the local ollama service below
+      # instead, with no code or compose-file change per environment.
+      - LLM_BASE_URL=${LLM_BASE_URL:-https://api.groq.com/openai/v1}
       # Must support tool calling. gpt-oss-20b is the fast one on Groq that
       # does; llama-3.3-70b-versatile was retired and 404s.
-      - LLM_MODEL=openai/gpt-oss-20b
-      - LLM_API_KEY=${GROQ_API_KEY}
-      #   local alternative (needs >=6 GB for Docker):
-      #   - LLM_BASE_URL=http://ollama:11434/v1
-      #   - LLM_MODEL=qwen2.5:1.5b
-      #   - LLM_API_KEY=ollama-needs-no-key
+      - LLM_MODEL=${LLM_MODEL:-openai/gpt-oss-20b}
+      - LLM_API_KEY=${LLM_API_KEY:-${GROQ_API_KEY}}
     # A hard ceiling as well as the thread cap: inference must never be able to
     # starve the media server or the health checks. Raised from 2 to 4 (of 8)
     # once the Docker Desktop Kubernetes control plane was turned off - three
