@@ -25,10 +25,6 @@ class Camera(db.Model):
     name = db.Column(db.String(128), nullable=False)
     rtsp_url = db.Column(db.Text, nullable=False)
 
-    # Plain string, not a foreign key: the `device` table is in another schema
-    # owned by another service. Existence is checked over HTTP at write time.
-    device_code = db.Column(db.String(64), nullable=True)
-
     # Filled in by ffprobe at registration time.
     status = db.Column(db.String(16), nullable=False, default="UNKNOWN")
     codec = db.Column(db.String(32), nullable=True)
@@ -45,7 +41,6 @@ class Camera(db.Model):
             "id": self.id,
             "name": self.name,
             "rtspUrl": self.rtsp_url,
-            "deviceCode": self.device_code,
             "status": self.status,
             "codec": self.codec,
             "width": self.width,

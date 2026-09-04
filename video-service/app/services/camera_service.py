@@ -2,7 +2,6 @@ import logging
 
 from app import db
 from app.models import Camera, utcnow
-from app.services.device_client import device_code_exists
 from app.services.probe_service import ProbeError, probe_stream
 from app.services import stream_service
 
@@ -36,12 +35,7 @@ def _validate_payload(payload: dict, require_url=True):
             raise ValidationError("rtspUrl is required")
         if not rtsp_url.lower().startswith(ALLOWED_SCHEMES):
             raise ValidationError("rtspUrl must start with rtsp:// or rtsps://")
-   # read deviceCode from the request body. If it wasn't sent, device_code = None.
-    device_code = (payload.get("deviceCode") or "").strip() or None
-    if device_code and not device_code_exists(device_code):
-        raise ValidationError(f"unknown deviceCode '{device_code}'")
-
-    return name, rtsp_url, device_code
+    return name, rtsp_url
 
 #called in probe (creation) and reprobe (test again in ui)
 def _apply_probe(camera: Camera):
@@ -64,12 +58,12 @@ def _apply_probe(camera: Camera):
 
 
 def register_camera(payload: dict) -> Camera:
-    name, rtsp_url, device_code = _validate_payload(payload)
+    name, rtsp_url = _validate_payload(payload)
     #duplicate filter
     if Camera.query.filter_by(rtsp_url=rtsp_url).first():
         raise ValidationError(f"a camera with this rtspUrl is already registered")
 
-    camera = Camera(name=name, rtsp_url=rtsp_url, device_code=device_code, status="UNKNOWN")
+    camera = Camera(name=name, rtsp_url=rtsp_url, status="UNKNOWN")
     _apply_probe(camera)
     #_apply_probe fail no save
     if camera.status == "UNREACHABLE":
