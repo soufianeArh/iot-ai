@@ -2,18 +2,13 @@ package com.soufiane.device.mqtt;
 
 import java.util.Optional;
 
-/**
- * Parses `iot/{productKey}/{deviceCode}/{action}`.
- *
- * The topic carries WHO is talking (product + device) and WHAT kind of message it is
- * (the action segment). Compare EasyAIoT's ALink codec, where the topic carries only
- * WHO and the payload's `method` field carries WHAT.
- */
+
 public record DeviceTopic(String productKey, String deviceCode, String action) {
 
     private static final int SEGMENTS = 4;
     private static final String PREFIX = "iot";
-
+    //iot/farmA/sensor07/properties
+    // into DeviceTopic(productKey="farmA",deviceCode="sensor07", action="properties")
     public static Optional<DeviceTopic> parse(String topic) {
         if (topic == null) {
             return Optional.empty();

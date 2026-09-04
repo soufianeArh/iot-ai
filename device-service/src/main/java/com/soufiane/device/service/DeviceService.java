@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-
+//just bean : part of endpt bcs controller
 @Service
 @Transactional(readOnly = true)
 public class DeviceService {

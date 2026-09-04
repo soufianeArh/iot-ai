@@ -22,8 +22,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
 
+//controller: bean + endpt regitery
+//response body skips: html rendering to JSON body
 @RestController
 @RequestMapping("/api/devices")
+//CRUD on devides
 public class DeviceController {
 
     private final DeviceService deviceService;
@@ -39,8 +42,11 @@ public class DeviceController {
         return deviceService.findAll();
     }
 
-    // Declared ahead of /{id}: a static segment must win over the path
-    // variable, and putting it first here keeps that obvious on read.
+
+    // targets the IngesService for unregisterd to get them ONLY
+    //POST is mqqt subscriber job
+    //list them  until it's evicted (200-cap pushes it out) or the service restarts
+    //no route yet to delete an unregistered device!!!
     @GetMapping("/unregistered")
     public List<UnregisteredSighting> unregistered() {
         return deviceIngestService.listUnregistered();

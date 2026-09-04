@@ -16,6 +16,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/devices/{deviceId}/properties")
 @Validated
+//saves reading belong to one device
 public class DevicePropertyController {
 
     private final DevicePropertyService devicePropertyService;
@@ -24,10 +25,10 @@ public class DevicePropertyController {
         this.devicePropertyService = devicePropertyService;
     }
 
-    /**
-     * No `key` -> latest value of every property.
-     * With `key` -> most recent readings of that one property.
-     */
+
+     //No key param -> latest value of every property.
+     // With key param -> most recent readings of that one property.
+
     @GetMapping
     public List<DevicePropertyResponse> read(
             @PathVariable Long deviceId,

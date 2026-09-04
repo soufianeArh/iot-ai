@@ -1,10 +1,4 @@
-"""
-video-service entrypoint.
 
-Shape follows EasyAIoT's VIDEO/run.py (app factory -> config from env ->
-db.init_app -> register_blueprint with a /video prefix), minus its Nacos
-registration, 11 scattered db.create_all() calls and hand-rolled migration checks.
-"""
 import logging
 import os
 import time
@@ -24,7 +18,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("video-service")
 
-
+# read the db url from different ENV
 def _database_url() -> str:
     url = os.getenv("DATABASE_URL", "postgresql://postgres:devpass@localhost:5434/myiot")
     # SQLAlchemy 2.x rejects the legacy postgres:// prefix
@@ -32,7 +26,11 @@ def _database_url() -> str:
         url = url.replace("postgres://", "postgresql://", 1)
     return url
 
-
+"""
+creates video tables and createall() initil db
+wrapped in a Postgres advisory lock so multiple gunicorn workers
+booting in parallel don't race each other into creating the schema twice.
+"""
 def _init_schema(app: Flask):
     """
     Create the `video` schema, then the tables inside it.
@@ -64,8 +62,8 @@ def _resync_streams(app: Flask):
     Rebuild the media server's camera list from the database at startup.
 
     MediaMTX loses every API-added path when it restarts, so without this a
-    restart leaves cameras that exist in Postgres but cannot be played. Best
-    effort: video-service must still start if the media server is down, and it
+    restart leaves cameras that exist in Postgres but cannot be played.
+    BestEffort: video-service must still start if the media server is down, and it
     retries because MediaMTX may not be accepting connections yet.
     """
     from app.services import camera_service
@@ -88,6 +86,10 @@ def create_app() -> Flask:
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
     app.config["JSON_SORT_KEYS"] = False
 
+    """
+      from flask_sqlalchemy import SQLAlchemy
+      app.config is config container ONLY
+    """
     db.init_app(app)
 
     from app.blueprints.camera import camera_bp

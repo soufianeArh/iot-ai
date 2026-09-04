@@ -2,9 +2,8 @@ package com.soufiane.device.mqtt;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Bound from the `mqtt.*` block in application.yml.
- */
+//@ConfigurationProperties(prefix="mqtt") at boot
+// gets config from application.yml
 @ConfigurationProperties(prefix = "mqtt")
 public class MqttProperties {
 

@@ -1,9 +1,9 @@
 """
 HTTP client for device-service.
 
-The `device` table lives in another service's schema, so a camera stores a
-device_code string instead of a foreign key. Referential integrity is traded
-for service independence - this module is where that cost is paid.
+_validate_payload() calls device_code_exists() from here to
+  check a deviceCode against device-service, since cameras (video-service) and devices (device-service) live in completely different
+  services/databases with no shared DB access.
 """
 import logging
 import os

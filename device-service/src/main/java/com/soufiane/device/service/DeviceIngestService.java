@@ -30,15 +30,16 @@ import java.util.concurrent.ConcurrentHashMap;
  * a bad payload from one device must never break the subscriber loop.
  */
 @Service
+//turns mqtt messages into rows in db
 public class DeviceIngestService {
 
     private static final Logger log = LoggerFactory.getLogger(DeviceIngestService.class);
+    //JSON key a device is expected to use for its own timestamp, e.g. {"ts": 1699999999000, temp
     private static final String TIMESTAMP_FIELD = "ts";
 
-    // In-memory only, not a table: this is a debugging aid ("your firmware is
-    // publishing somewhere nobody registered"), not data anyone needs kept
-    // across a restart. Capped so a noisy or malicious publisher spraying
-    // random topics can't grow it without bound.
+    //Device sends bad MQTT message → MqttSubscriber
+    //→ DeviceIngestService.handleProperties()
+    //→ resolveDevice() fails → recordUnregistered() → adds one line to the in-memory Map
     private static final int MAX_TRACKED_UNREGISTERED = 200;
 
     private final DeviceRepository deviceRepository;
@@ -136,7 +137,8 @@ public class DeviceIngestService {
         device.setStatus(status);
         log.info("MQTT {}: device {} is now {}", topic, device.getDeviceCode(), status);
     }
-
+    // case resolved: pg repo append
+    //no resolve: unregiteerd device in RAM 200limit
     private Optional<Device> resolveDevice(String topic) {
         Optional<DeviceTopic> parsed = DeviceTopic.parse(topic);
         if (parsed.isEmpty()) {
@@ -146,11 +148,13 @@ public class DeviceIngestService {
         DeviceTopic deviceTopic = parsed.get();
 
         Optional<Device> device = deviceRepository.findByDeviceCode(deviceTopic.deviceCode());
+        //device code not found >> unregistered list
         if (device.isEmpty()) {
             log.warn("MQTT {}: unknown deviceCode '{}', dropped", topic, deviceTopic.deviceCode());
             recordUnregistered(deviceTopic.productKey(), deviceTopic.deviceCode(), "unknown_device");
             return Optional.empty();
         }
+        //device code is registered >> unregistered
         if (!device.get().getProductKey().equals(deviceTopic.productKey())) {
             log.warn("MQTT {}: productKey mismatch (topic='{}', registered='{}'), dropped",
                     topic, deviceTopic.productKey(), device.get().getProductKey());
@@ -159,7 +163,9 @@ public class DeviceIngestService {
         }
         return device;
     }
-
+    //productKey, deviceCode, reason, count, firstSeenAt, lastSeenAt.
+    // That's it. No sensor data, no property values
+    //same unregisterd : updates the value + count in ram (no new ram record)
     private void recordUnregistered(String productKey, String deviceCode, String reason) {
         String key = productKey + "/" + deviceCode;
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
@@ -175,9 +181,8 @@ public class DeviceIngestService {
         }
     }
 
-    /** Recently seen deviceCode/productKey pairs that MQTT messages arrived
-     *  for but that resolveDevice() could not match to a registered device -
-     *  newest first, so a fresh typo in firmware surfaces at the top. */
+    //display the unregisted devices
+    //timestamp sort
     public List<UnregisteredSighting> listUnregistered() {
         return unregisteredSightings.values().stream()
                 .sorted(Comparator.comparing(UnregisteredSighting::lastSeenAt).reversed())

@@ -16,13 +16,8 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-/**
- * Owns the MQTT connection and routes inbound messages to {@link DeviceIngestService}.
- *
- * Paho's automatic reconnect only kicks in AFTER one successful connect, so the
- * scheduled ensureConnected() covers the case where the broker is not up yet at
- * startup. The service must boot even with no broker present.
- */
+//MqttSubscriber connects to EMQX (tcp://EMQX:1883,)
+//tcp pipe mqtt protocol
 @Component
 public class MqttSubscriber implements MqttCallbackExtended {
 
@@ -65,7 +60,8 @@ public class MqttSubscriber implements MqttCallbackExtended {
         }
     }
 
-    /** Fires on first connect AND on every automatic reconnect - so resubscribe here. */
+    //Fires on first connect AND on every automatic reconnect
+    // means: so resubscribe here.
     @Override
     public void connectComplete(boolean reconnect, String serverUri) {
         try {

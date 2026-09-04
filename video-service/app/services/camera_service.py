@@ -1,4 +1,3 @@
-"""Camera registry logic. Blueprints stay thin and call into here."""
 import logging
 
 from app import db
@@ -19,7 +18,8 @@ class ValidationError(Exception):
 class NotFoundError(Exception):
     """404."""
 
-
+#request data getting validfate to db
+#before a camera gets created (or updated)
 def _validate_payload(payload: dict, require_url=True):
     if not isinstance(payload, dict):
         raise ValidationError("body must be a JSON object")
@@ -36,14 +36,14 @@ def _validate_payload(payload: dict, require_url=True):
             raise ValidationError("rtspUrl is required")
         if not rtsp_url.lower().startswith(ALLOWED_SCHEMES):
             raise ValidationError("rtspUrl must start with rtsp:// or rtsps://")
-
+   # read deviceCode from the request body. If it wasn't sent, device_code = None.
     device_code = (payload.get("deviceCode") or "").strip() or None
     if device_code and not device_code_exists(device_code):
         raise ValidationError(f"unknown deviceCode '{device_code}'")
 
     return name, rtsp_url, device_code
 
-
+#called in probe (creation) and reprobe (test again in ui)
 def _apply_probe(camera: Camera):
     """Probe the stream and record the outcome on the camera. Never raises."""
     try:
@@ -65,13 +65,13 @@ def _apply_probe(camera: Camera):
 
 def register_camera(payload: dict) -> Camera:
     name, rtsp_url, device_code = _validate_payload(payload)
-
+    #duplicate filter
     if Camera.query.filter_by(rtsp_url=rtsp_url).first():
         raise ValidationError(f"a camera with this rtspUrl is already registered")
 
     camera = Camera(name=name, rtsp_url=rtsp_url, device_code=device_code, status="UNKNOWN")
     _apply_probe(camera)
-
+    #_apply_probe fail no save
     if camera.status == "UNREACHABLE":
         # Reject rather than store a broken camera: the whole point of Phase 5
         # is that a registered camera is a *verified* camera.
@@ -86,6 +86,8 @@ def register_camera(payload: dict) -> Camera:
     try:
         stream_service.register_path(camera.id, camera.rtsp_url)
     except stream_service.StreamError as exc:
+        #wait for video-service restart to be sync with all the urls
+        #wait for POST /stream stream_service.register_path
         log.warning("camera %s saved but not registered with the media server: %s", camera.id, exc)
 
     return camera
@@ -94,14 +96,15 @@ def register_camera(payload: dict) -> Camera:
 def list_cameras():
     return Camera.query.order_by(Camera.id).all()
 
-
+#just SELECT * FROM video.camera WHERE id = camera_id)
+#no rtsp
 def get_camera(camera_id: int) -> Camera:
     camera = db.session.get(Camera, camera_id)
     if camera is None:
         raise NotFoundError(f"camera not found: {camera_id}")
     return camera
 
-
+#UI retest
 def reprobe_camera(camera_id: int) -> Camera:
     """Re-check an existing camera. Unlike registration this stores the failure."""
     camera = get_camera(camera_id)

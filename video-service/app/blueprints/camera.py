@@ -1,6 +1,5 @@
 """
-HTTP routes for cameras. Thin on purpose - the Python mirror of a Spring
-@RestController: parse, delegate, serialise. All logic lives in services/.
+equivaelent to controller !!!
 """
 import logging
 
@@ -45,7 +44,7 @@ def list_all():
 def get_one(camera_id):
     return jsonify(camera_service.get_camera(camera_id).to_dict())
 
-
+#noCRUD just test
 @camera_bp.route("/<int:camera_id>/probe", methods=["POST"])
 def probe(camera_id):
     return jsonify(camera_service.reprobe_camera(camera_id).to_dict())
@@ -57,8 +56,10 @@ def delete(camera_id):
     return "", 204
 
 
-# HTTP paths stay /stream: that is what a caller cares about. The handler names
-# say what actually happens underneath - a path mapping, not a running stream.
+"""
+all three are just HTTP calls to MediaMTX's own control API (no rtsp made)
+check the status inside mediamtx server / register / and delete 
+"""
 @camera_bp.route("/<int:camera_id>/stream", methods=["GET"])
 def stream_status(camera_id):
     camera_service.get_camera(camera_id)          # 404 if the camera is unknown

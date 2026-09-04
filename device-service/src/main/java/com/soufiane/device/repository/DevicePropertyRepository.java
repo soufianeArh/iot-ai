@@ -10,11 +10,11 @@ import java.util.List;
 
 public interface DevicePropertyRepository extends JpaRepository<DeviceProperty, Long> {
 
-    /**
-     * Latest reading for each distinct key of one device.
-     * DISTINCT ON is Postgres-specific: it keeps the first row of each group,
-     * which the ORDER BY makes the most recent one.
-     */
+
+     // Latest reading for each distinct key of one device.
+     // DISTINCT ON is Postgres-specific: it keeps the first row of each group,
+     //which the ORDER BY makes the most recent one.
+
     @Query(value = """
             SELECT DISTINCT ON (property_key) *
             FROM device_property

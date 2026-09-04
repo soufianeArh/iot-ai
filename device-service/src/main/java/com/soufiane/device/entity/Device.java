@@ -10,7 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.OffsetDateTime;
-
+//application side model
+// table creation is entirely Flyway job (V1__create_device.sql)
 @Entity
 @Table(name = "device")
 public class Device {
