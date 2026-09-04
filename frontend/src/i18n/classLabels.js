@@ -143,6 +143,17 @@ const PLANT = {
 
 export const LABELS = { ...COCO, ...FIRE, ...PLANT }
 
+// Case-insensitive index. The plant-disease model emits Title Case
+// ("Corn leaf blight"), but a rule's label is lowercased on save
+// (rule_engine.py) and an alert's label is copied from the rule - so the
+// exact same class shows up as "corn leaf blight" depending on which table
+// it is read from. An exact-match lookup only ever caught the COCO/fire
+// classes, which happen to be lowercase everywhere already; this catches
+// every casing without renaming a single key above.
+const LABELS_LC = Object.fromEntries(
+  Object.entries(LABELS).map(([k, v]) => [k.toLowerCase(), v])
+)
+
 // Model keys are env-driven (YOLO_EXTRA_MODELS / HF_MODELS - see
 // device-service .setup/docker-compose.yml), so this only covers the ones
 // actually configured in this repo; an unrecognised key just shows its raw
@@ -155,7 +166,7 @@ export const MODEL_NAMES = {
 
 export function labelText(raw, loc) {
   if (!raw) return raw
-  const entry = LABELS[raw]
+  const entry = LABELS_LC[raw.toLowerCase()]
   return (entry && entry[loc]) || raw
 }
 
