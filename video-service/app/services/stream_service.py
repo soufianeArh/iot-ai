@@ -48,12 +48,21 @@ def _api(method: str, endpoint: str, **kwargs):
 
 def register_path(camera_id: int, rtsp_url: str) -> dict:
     """
-    Record which RTSP URL this camera maps to. Does NOT open the stream.
+    In register_camera (camera-service) i register path
+    Record which RTSP URL this camera maps to.
+    Does NOT open the stream.
 
     sourceOnDemand=True is what makes that true: MediaMTX stores the mapping and
     only dials the camera when a viewer actually asks, closing it 10s after the
-    last viewer leaves. So registering 50 cameras opens 0 camera connections.
-    Without the flag, registering a path WOULD start pulling immediately.
+    last viewer leaves.
+
+    camera stream when OPEN by mediaMTX serves the same datato all users
+    last user to exit. then mediaMTX closes the stream
+
+    Next viewer who shows up later triggers a fresh pull.
+
+    So registering 50 cameras opens 0 camera connections.
+    Without the flag sourceOnDemand=True, registering a path WOULD start pulling immediately.
 
     Safe to call repeatedly: an existing path is PATCHed rather than rejected.
     """
@@ -81,7 +90,10 @@ def register_path(camera_id: int, rtsp_url: str) -> dict:
 
 
 def unregister_path(camera_id: int):
-    """Forget the mapping. Any in-flight connection is dropped with it."""
+    """
+    delete_camera() in camera_service.py
+    calls stream_service.unregister_path(camera_id)
+    """
     name = path_name(camera_id)
     response = _api("DELETE", f"/v3/config/paths/delete/{name}")
     if not response.ok and response.status_code != 404:

@@ -37,10 +37,11 @@ def _validate_payload(payload: dict, require_url=True):
             raise ValidationError("rtspUrl must start with rtsp:// or rtsps://")
     return name, rtsp_url
 
-#called in probe (creation) and reprobe (test again in ui)
+#called in probe (creation) and using the same core reprobe (tested in ui)
 def _apply_probe(camera: Camera):
     """Probe the stream and record the outcome on the camera. Never raises."""
     try:
+        # calls probe stream in parallel service
         info = probe_stream(camera.rtsp_url)
     except ProbeError as exc:
         camera.status = "UNREACHABLE"

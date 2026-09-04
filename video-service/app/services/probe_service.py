@@ -44,8 +44,11 @@ def _parse_fps(rate: str):
 
 def probe_stream(rtsp_url: str) -> dict:
     """
-    Open the stream, read enough to identify it, then disconnect.
-
+    runs the ffprobe CLI tool against the RTSP URL with a timeout
+    ffprobe connects briefly, reads the video stream's
+    metadata (codec, resolution, frame rate),
+    then disconnects
+    no recording, no MediaMTX involved
     Returns {'codec', 'width', 'height', 'fps'} or raises ProbeError.
     """
     if not shutil.which("ffprobe"):

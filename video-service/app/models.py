@@ -1,10 +1,8 @@
 """
 SQLAlchemy models for video-service.
-
-Every table lives in the `video` schema, NOT `public`. `public` belongs to
-device-service, whose Flyway migrations run with hibernate ddl-auto=validate:
+Every table lives in the `video` schema, NOT `public`.
+`public` belongs to device-service,( Flyway migrations run with hibernate ddl-auto=validate)
 two services creating tables in one schema is how silent conflicts start.
-One service owns a table; everyone else asks that service over HTTP.
 """
 from datetime import datetime, timezone
 
