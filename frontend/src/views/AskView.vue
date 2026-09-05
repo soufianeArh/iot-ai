@@ -50,7 +50,7 @@ async function scroll() {
   threadEl.value?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'end' })
 }
 
-/** "search_alerts(acknowledged=false)" - showing the call is the point of the page. */
+/** e.g. "search_alerts(acknowledged=false)" - shown so the tool call is visible. */
 function callSignature(call) {
   const args = Object.entries(call.arguments || {})
     .map(([k, v]) => `${k}=${v}`).join(', ')

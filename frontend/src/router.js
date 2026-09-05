@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
-// Lazy-loaded: the chat view in particular is only wanted occasionally, and
-// this keeps the first paint small.
+// Lazy-loaded so the initial bundle stays small; chat especially is only
+// opened occasionally.
 const routes = [
   { path: '/', redirect: '/devices' },
   { path: '/devices', component: () => import('./views/DevicesView.vue') },
@@ -12,6 +12,6 @@ const routes = [
   { path: '/:pathMatch(.*)*', redirect: '/devices' },
 ]
 
-// createWebHistory, not hash mode - which is why nginx needs
-// `try_files $uri /index.html`, or a refresh on /alerts 404s.
+// createWebHistory, not hash mode: nginx needs `try_files $uri /index.html`
+// or a refresh on /alerts would 404.
 export const router = createRouter({ history: createWebHistory(), routes })

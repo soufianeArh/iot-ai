@@ -3,8 +3,8 @@
 #   docker exec drone-camera sh /samples/build_loop.sh   (needs /samples writable)
 # or point OUT at a writable path and copy the result back.
 #
-# Each still becomes its own clip first. Building one clip from a concat list
-# of images does not work - ffmpeg renders the first entry and stops.
+# Each still becomes its own clip first, since a concat list of raw images
+# just freezes ffmpeg on the first frame.
 set -e
 OUT="${OUT:-/tmp}"
 enc() { ffmpeg -y -hide_banner -loglevel error -loop 1 -i "$1" -t "$2" -r 5 \

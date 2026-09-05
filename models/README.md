@@ -1,6 +1,6 @@
 # Third-party model weights
 
-## fire.pt - fire and smoke detection
+## fire.pt: fire and smoke detection
 
 Classes: `fire`, `smoke`. YOLOv8n, 150 epochs, trained 2024-08-29.
 
@@ -9,7 +9,7 @@ Source: https://github.com/luminous0219/fire-and-smoke-detection-yolov8
 Upstream sha256: `ac0a10257b2bc1f20c9d957f8adeeb61dd6140322fc19d0b4a116cb491776d16`
 
 **This file is not the download.** A `.pt` is a Python pickle, and
-`torch.load` executes what it contains - the standard supply-chain attack on
+`torch.load` executes what it contains, the standard supply-chain attack on
 ML models. Before trusting it:
 
 1. `scan_pickle.py` disassembles the pickle with `pickletools.genops`, which
@@ -27,8 +27,8 @@ with no dill dependency. To re-verify, run `scan_pickle.py` against it.
 
 ## Known behaviour
 
-Tested against `samples/drone/`, which is synthetic - so this measures very
-little, and is recorded only to show it is not a settled question:
+Tested against `samples/drone/`, which is synthetic, so this measures very
+little and is recorded only to show it is not a settled question:
 
     drone-crop-fire-01.jpg   -> nothing              (missed)
     drone-crop-fire-02.jpg   -> fire 0.534, 0.327

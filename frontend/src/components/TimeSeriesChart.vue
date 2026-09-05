@@ -1,15 +1,8 @@
 <script setup>
 /*
- * A line chart, drawn as inline SVG.
- *
- * No charting library on purpose. This draws a handful of numeric series with
- * no zoom or brushing, which is about sixty lines of SVG against ~70 KB of
- * Chart.js - and more importantly it inherits the theme tokens and flips with
- * dir="rtl" for free. A library would need its own palette config and a nudge
- * to mirror in Arabic.
- *
- * Reach for a real library when you want tooltips, zoom and a legend plugin.
- * Not before.
+ * A small line chart, drawn as inline SVG instead of pulling in a charting
+ * library. It only needs a few series with no zoom or brushing, and this way
+ * it inherits the theme colours and RTL flip for free.
  */
 import { computed, ref } from 'vue'
 
@@ -64,13 +57,9 @@ function sy(v) {
 function path(points) {
   if (!points.length) return ''
 
-  // A straight line across a reporting outage would show a smooth transition
-  // between two values where there is actually no data at all - misleading,
-  // since a reader can't tell "the reading changed gradually" from "the
-  // device was silent for three hours" by looking at it. So a gap much wider
-  // than this series' normal cadence starts a new subpath (M) instead of
-  // connecting (L). Median-based rather than a fixed interval, so it adapts
-  // to whatever rate this particular device actually reports at.
+  // Break the line instead of connecting across a gap much wider than this
+  // series' usual reporting interval, so an outage doesn't look like a
+  // smooth reading change. Uses the median gap so it adapts per device.
   const deltas = []
   for (let i = 1; i < points.length; i++) {
     deltas.push(+new Date(points[i].t) - +new Date(points[i - 1].t))
@@ -179,15 +168,9 @@ function onMove(event) {
 </template>
 
 <style scoped>
-/* The chart itself does NOT mirror in Arabic, deliberately.
- *
- * A time axis reads left-to-right everywhere - flipping it would put "now" on
- * the left and the past on the right, which no reader expects of a graph. The
- * page around it mirrors; the plot does not.
- *
- * It also fixes a concrete bug: inheriting direction:rtl reverses what
- * text-anchor="end" means, so the threshold labels anchored to the right edge
- * were rendered off-canvas and clipped to "gre". */
+/* The chart stays LTR even in Arabic: a time axis reading right-to-left
+ * would put "now" on the left, which no reader expects. This also keeps
+ * text-anchor="end" meaning what it says for the threshold labels. */
 .chart svg { width: 100%; display: block; direction: ltr; }
 .grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }

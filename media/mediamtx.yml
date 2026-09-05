@@ -1,11 +1,10 @@
-# MediaMTX - the media server. Pulls RTSP from cameras, republishes as HLS/WebRTC.
+# MediaMTX, the media server. Pulls RTSP from cameras, republishes as HLS/WebRTC.
 logLevel: info
 
-# MediaMTX restricts the control API to 127.0.0.1 by default, so a call from
-# another container is rejected with "authentication error". video-service runs
-# in its own container, so the api action must be allowed from the compose
-# network (Docker uses 172.16.0.0/12). Everything stays inside the network -
-# no API port is published to the host.
+# MediaMTX restricts the control API to 127.0.0.1 by default, which rejects
+# calls from another container. video-service needs the api action allowed
+# from the compose network (172.16.0.0/12); no API port is published to the
+# host.
 authInternalUsers:
   - user: any
     pass:

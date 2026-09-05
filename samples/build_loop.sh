@@ -1,25 +1,14 @@
 #!/bin/sh
-# Build loop.mp4 from every still in a samples directory.
-#
-# Run it with the directory mounted WRITABLE, using the sample-camera image
-# (it already has ffmpeg):
+# Build loop.mp4 from every still in a samples directory. Run it with the
+# directory mounted writable, using the sample-camera image (it has ffmpeg):
 #
 #   docker run --rm -v "$PWD/samples/land:/samples" \
 #     --entrypoint sh setup-drone-camera /samples/../build_loop.sh
 #
-# Two hard-won rules are baked in here:
-#
-# 1. Every frame is normalised to the SAME size first. Feeding ffmpeg stills
-#    of different dimensions makes it rebuild its filter graph at each switch
-#    ("Reconfiguring filter graph because video parameters changed"), which
-#    forces a full-quality keyframe every time and drops encoding to ~0.3x
-#    real time. The publisher then cannot feed the stream and the RTSP server
-#    drops it after 10s, permanently.
-#
-# 2. Each still becomes its own clip, and the clips are concatenated. Building
-#    one clip from a concat list of images does NOT work: ffmpeg renders the
-#    first entry and stops, so the stream freezes on a single image forever.
-#    That silently cost us a camera that appeared to detect only one thing.
+# Every frame is normalised to the same size first, or ffmpeg rebuilds its
+# filter graph on each switch and encoding falls far behind real time. Each
+# still also becomes its own clip before concatenation, since a concat list
+# of raw images just freezes ffmpeg on the first frame.
 set -e
 
 SRC="${SRC:-/samples}"
@@ -32,10 +21,9 @@ WORK="${WORK:-/tmp/build}"
 rm -rf "$WORK"; mkdir -p "$WORK"
 : > "$WORK/join.txt"
 
-# An optional frames.txt names the stills to use, one per line, in order.
-# Without it every image in the directory is taken, which breaks down as soon
-# as a directory holds both an original .png and a normalised .jpg of the same
-# photo - it would appear twice.
+# An optional frames.txt names the stills to use, in order. Without it every
+# image in the directory is used, which breaks if a .png and its normalised
+# .jpg both exist side by side.
 if [ -f "$SRC/frames.txt" ]; then
   LIST=$(grep -v '^[[:space:]]*#' "$SRC/frames.txt" | grep -v '^[[:space:]]*$'          | sed "s|^|$SRC/|")
 else

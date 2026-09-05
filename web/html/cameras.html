@@ -113,20 +113,19 @@ async function load() {
       '</td></tr>';
   }).join('');
 
-  // Only touch the DOM when something actually changed. Reassigning innerHTML
-  // on every poll destroys and recreates the buttons, and a click whose
-  // mousedown/mouseup straddle that swap never fires a click event - the
-  // button visibly depresses and nothing happens.
+  // Only touch the DOM when something actually changed. Reassigning
+  // innerHTML on every poll destroys and recreates the buttons, and a click
+  // whose mousedown/mouseup straddle that swap never fires at all.
   if (html !== rows.innerHTML) rows.innerHTML = html;
 }
 
 async function playHls(id) {
   teardown();
   const url = '/hls/cam' + id + '/index.m3u8';
-  // Cold start: the stream is pulled on demand, so the FIRST request has to wake
-  // MediaMTX, which then dials the camera over RTSP. Measured at ~21s here, while
-  // hls.js gives up after 10s and shows nothing. So warm it with a plain fetch
-  // first - fetch has no such timeout - and only then hand the URL to the player.
+  // Cold start: the stream is pulled on demand, so the first request wakes
+  // MediaMTX, which then dials the camera over RTSP (~21s). hls.js gives up
+  // after 10s, so warm the URL with a plain fetch first, which has no such
+  // timeout, before handing it to the player.
   const hint = document.getElementById('playerHint');
   hint.textContent = 'Starting stream... the first play can take ~20s while the camera connection is opened on demand.';
   try {
@@ -158,9 +157,9 @@ async function playHls(id) {
   hls = new Hls({ lowLatencyMode: true });
   hls.loadSource(url);
   hls.attachMedia(video);
-  // The autoplay attribute alone is not enough once hls.js attaches the media
-  // source: play() must be called explicitly. It is allowed here because the
-  // element is muted - browsers only block autoplay with sound.
+  // The autoplay attribute alone isn't enough once hls.js attaches the media
+  // source, so play() is called explicitly. Allowed here since the element
+  // is muted; browsers only block autoplay with sound.
   hls.on(Hls.Events.MANIFEST_PARSED, function () {
     video.play().catch(function (e) { say('press play: ' + e.message); });
   });

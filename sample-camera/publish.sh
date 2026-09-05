@@ -7,10 +7,10 @@
 set -e
 TARGET="${RTSP_TARGET:-rtsp://sample-camera-rtsp:8554/live}"
 
-# The concat demuxer needs every input to decode to the SAME size - mixing a
-# landscape and a portrait still makes it fail. Set OUT_SIZE=WxH to letterbox
-# everything onto one canvas; leave it unset to keep the original behaviour of
-# scaling to 960 wide and following the source aspect.
+# The concat demuxer needs every input to decode to the same size, so mixing
+# a landscape and a portrait still makes it fail. Set OUT_SIZE=WxH to
+# letterbox everything onto one canvas, or leave it unset to just scale to
+# 960 wide and follow the source aspect.
 if [ -n "${OUT_SIZE:-}" ]; then
   W="${OUT_SIZE%x*}"
   H="${OUT_SIZE#*x}"

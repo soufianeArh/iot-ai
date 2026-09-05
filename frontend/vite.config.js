@@ -1,10 +1,9 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// The API lives behind the nginx that already fronts the stack. In dev the
-// browser talks to Vite and Vite forwards these prefixes to it, so the app
-// makes the SAME relative calls in dev and in production - no base-URL switch,
-// no CORS, and nothing to change at build time.
+// The API sits behind the same nginx that fronts the stack. In dev, Vite
+// proxies these prefixes so the app makes the same relative calls in dev
+// and production, with no base URL switch and no CORS.
 const API = 'http://localhost'
 const proxy = {}
 for (const p of ['/api', '/video', '/ai', '/hls', '/whep', '/snapshots']) {

@@ -1,33 +1,14 @@
-"""Deletes old rows from the live database. Nothing here touches backups -
-see backup.py for that. The two jobs are deliberately independent: this one
-keeps the live DB small and fast, backup.py keeps a separate, longer-lived
-archive, and neither knows the other exists.
+"""
+Deletes old rows from the live database on a schedule. See backup.py for
+the separate archive job, this one only keeps the live DB small.
 
-What gets deleted, and what doesn't:
-  - device_property (public schema, device-service): every MQTT reading ever
-    stored, one row per property per report. High volume, and the dashboard
-    itself only ever shows up to 24 hours, so anything past RETENTION_DAYS
-    is pure storage cost with no UI that can even reach it.
-  - ai.detection: every camera detection, INCLUDING its snapshot image file
-    on disk. Same reasoning, plus the images make this the heaviest table on
-    disk, not just the row count. Deleted by TWO independent rules, either
-    one enough on its own: older than RETENTION_DAYS, or outside the newest
-    MAX_DETECTIONS_PER_CAMERA for its camera. The age rule alone does not
-    catch something staying in frame continuously - one detection every 3s,
-    non-stop, is ~860k rows within a 30-day window, all still "recent" by
-    age. The count cap is scoped per camera (not globally) so one busy
-    camera's flood can't crowd out another camera's history.
-  - ai.alert is NOT touched here, on purpose: alerts are the curated,
-    human-relevant output (see the codebase's own alerts.py comment - "an
-    alert a human could invent by hand would not mean anything" - reflected
-    in there being no delete endpoint for them at all). Low volume, kept
-    indefinitely at this stage.
+device_property and ai.detection get pruned past RETENTION_DAYS.
+ai.detection also has a per camera row cap, since a busy camera can pile up
+detections fast even within the retention window. ai.alert is never
+touched here, alerts are kept indefinitely.
 
-Snapshot files need care: multiple detection rows can share one file (a
-frame with several hits), and an alert can literally reuse the filename of
-the detection that triggered it (see rule_engine.py). So a file is deleted
-only after checking that neither table still points at it - not just
-whichever row triggered the delete.
+A snapshot file is only removed once no detection or alert row still
+references it.
 """
 import os
 from datetime import datetime, timedelta, timezone
@@ -53,8 +34,8 @@ def delete_old_device_readings(conn, cutoff):
 
 
 def delete_old_detections(conn, cutoff):
-    # RETURNING captures exactly the filenames these rows held, atomically
-    # with the delete - no separate "select then delete" race to worry about.
+    # RETURNING captures the filenames atomically with the delete, avoiding
+    # a separate select then delete race.
     cur = conn.cursor()
     cur.execute(
         "DELETE FROM ai.detection WHERE detected_at < %s RETURNING snapshot",
@@ -69,10 +50,8 @@ def delete_old_detections(conn, cutoff):
 
 
 def cap_detections_per_camera(conn, max_per_camera):
-    # Keeps the newest `max_per_camera` rows for EACH camera_id and deletes
-    # the rest, in one statement across every camera at once - not "delete
-    # everything past row 500 overall", which would let one busy camera eat
-    # every other camera's budget.
+    # Keeps the newest max_per_camera rows per camera_id in one statement, so
+    # one busy camera can't eat every other camera's budget.
     cur = conn.cursor()
     cur.execute(
         """
@@ -101,10 +80,9 @@ def cap_detections_per_camera(conn, max_per_camera):
 
 
 def still_referenced(conn, filename):
-    # Runs AFTER the delete above has committed, so this genuinely reflects
-    # what's left - not a stale snapshot of pre-delete data. ai.alert is
-    # never modified by this script, but it can still hold the same filename
-    # a since-deleted detection did, which is exactly what this guards.
+    # Runs after the delete above commits, so this reflects what's actually
+    # left. ai.alert can still hold the same filename a deleted detection
+    # used, which is exactly what this checks for.
     cur = conn.cursor()
     cur.execute(
         "SELECT 1 FROM ai.detection WHERE snapshot = %s "

@@ -1,15 +1,11 @@
 // Display-only translations for detector class names and model keys.
 //
-// The VALUE bound to a form, sent to the API, and stored in the DB must stay
-// the exact string a YOLO/HF model actually outputs ("person", "fire",
-// "Tomato leaf") - that is the only thing that will ever match what the model
-// reports. This file only changes what a human reads on screen; nothing here
-// is ever written back to a form field or a request body.
+// The value bound to a form and sent to the API must stay the exact string
+// the model outputs ("person", "fire", "Tomato leaf"). This file only
+// changes what's shown on screen.
 //
-// No 'en' key is stored per entry: the raw English string already IS the
-// English display text, so English is the implicit fallback for both a
-// missing locale and an unrecognised label (a class added later without an
-// entry here just shows its raw name, same as it did before this file).
+// No 'en' key per entry: the raw string already is the English text, and
+// it's also the fallback for anything not listed here.
 
 // The 80 standard COCO classes the default YOLOv8 weights were trained on.
 const COCO = {
@@ -101,12 +97,10 @@ const FIRE = {
   smoke: { fr: 'fumée', ar: 'دخان', zh: '烟' },
 }
 
-// The 31 PlantDoc classes the "plant" model was fine-tuned on. Translated by
-// crop + condition rather than as opaque phrases, for consistency across the
-// set; functional/best-effort rather than certified agronomy terminology.
-// "Soyabean leaf" and "Soybean leaf" are two distinct labels in the upstream
-// dataset (a spelling variant, not a typo here) - both map to the same
-// display text on purpose, matching that quirk rather than hiding it.
+// The 31 PlantDoc classes the "plant" model was fine-tuned on. Best-effort
+// translations, not certified agronomy terms.
+// Note: "Soyabean leaf" and "Soybean leaf" are both real upstream labels
+// (a dataset spelling variant), mapped to the same display text here.
 const PLANT = {
   leaves: { fr: 'feuilles', ar: 'أوراق', zh: '叶片' },
   'Apple Scab Leaf': { fr: 'Feuille de pommier - tavelure', ar: 'ورقة تفاح - جرب', zh: '苹果叶 - 黑星病' },
@@ -143,21 +137,15 @@ const PLANT = {
 
 export const LABELS = { ...COCO, ...FIRE, ...PLANT }
 
-// Case-insensitive index. The plant-disease model emits Title Case
-// ("Corn leaf blight"), but a rule's label is lowercased on save
-// (rule_engine.py) and an alert's label is copied from the rule - so the
-// exact same class shows up as "corn leaf blight" depending on which table
-// it is read from. An exact-match lookup only ever caught the COCO/fire
-// classes, which happen to be lowercase everywhere already; this catches
-// every casing without renaming a single key above.
+// Case-insensitive lookup: the plant model emits Title Case ("Corn leaf
+// blight"), but rules/alerts store labels lowercased, so the same class can
+// appear in either casing depending on where it's read from.
 const LABELS_LC = Object.fromEntries(
   Object.entries(LABELS).map(([k, v]) => [k.toLowerCase(), v])
 )
 
-// Model keys are env-driven (YOLO_EXTRA_MODELS / HF_MODELS - see
-// device-service .setup/docker-compose.yml), so this only covers the ones
-// actually configured in this repo; an unrecognised key just shows its raw
-// name, same as an unrecognised label would.
+// Model keys come from env vars (YOLO_EXTRA_MODELS / HF_MODELS), so this
+// only lists what's configured here. An unknown key just shows its raw name.
 export const MODEL_NAMES = {
   default: { fr: 'par défaut', ar: 'افتراضي', zh: '默认' },
   fire: { fr: 'feu', ar: 'حريق', zh: '火' },
@@ -170,9 +158,8 @@ export function labelText(raw, loc) {
   return (entry && entry[loc]) || raw
 }
 
-// A running task's model can be "default,fire,plant" - every currently
-// available model joined by commas, not just two - so this must translate
-// each part and rejoin, not look up the whole string as one key.
+// A task's model string can be a comma list, e.g. "default,fire,plant", so
+// translate each part and rejoin rather than treating it as one key.
 const JOINERS = { ar: '، ' }
 
 export function modelText(raw, loc) {

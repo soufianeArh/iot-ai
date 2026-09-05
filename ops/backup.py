@@ -1,23 +1,13 @@
-"""Backs up the two things a disaster could take with it: the database, and
-the snapshot images sitting on disk next to it (pg_dump only ever covers the
-former - it has no idea the /snapshots folder exists, so without this half
-an alert's photo would be gone forever even with a perfect DB restore).
-Each archive is thinned on its own, independent of retention.py and of
-whatever it deletes from the live tables/files. That independence is the
-actual point: if the retention job ever deletes more than it should (a bug,
-a bad WHERE clause, run twice), these archives are what survive it. Syncing
-them - deleting a backup the same day retention deletes what it backed up -
-would defeat that; a backup with the same lifecycle as the data it protects
-protects against nothing.
+"""
+Backs up the database and the snapshot images on disk, since pg_dump only
+covers the database and has no idea the snapshots folder exists.
 
-Rotation, once a file ages out of the most recent DAILY_KEEP days: keep only
-the newest one per ISO week for WEEKLY_KEEP weeks, then only the newest per
-calendar month for MONTHLY_KEEP months, then drop it. So at any moment you
-have roughly DAILY_KEEP + WEEKLY_KEEP + MONTHLY_KEEP files covering a much
-longer span than that many daily backups would. Both archives use this same
-schedule, but each is thinned independently - a day where one succeeds and
-the other doesn't (disk full, one job crashes) never affects the other's
-rotation.
+Kept independent from retention.py, so a bad retention run can't take the
+backups down with it.
+
+Old files are thinned over time: every daily backup for BACKUP_DAILY_KEEP
+days, then one per week, then one per month, so a small number of files
+still cover a long history. The two archives are thinned separately.
 """
 import gzip
 import os
@@ -88,8 +78,8 @@ def thin(today, pattern, label):
         if d > daily_cutoff:
             keep.add(path)  # inside the daily window: every one survives
         elif d > weekly_cutoff:
-            # Newest-first order means the first file seen for a given week
-            # is that week's most recent backup - the one worth keeping.
+            # Newest first order means the first file seen for a given week
+            # is that week's most recent backup, the one worth keeping.
             week_key = d.isocalendar()[:2]
             if week_key not in kept_weeks:
                 kept_weeks.add(week_key)
@@ -99,7 +89,7 @@ def thin(today, pattern, label):
             if month_key not in kept_months:
                 kept_months.add(month_key)
                 keep.add(path)
-        # else: past the whole window - not kept, gets removed below.
+        # else: past the whole window, gets removed below.
 
     removed = 0
     for d, path in files:

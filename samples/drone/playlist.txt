@@ -2,8 +2,8 @@
 #
 # The concat demuxer will not loop a list of images reliably: with
 #     file a.jpg / duration 7 / file b.jpg / duration 4 / file b.jpg
-# ffmpeg rendered only the first 7 seconds and stopped - the later entries
-# never appeared, so the published stream froze on a single image forever.
+# ffmpeg rendered only the first 7 seconds and stopped, so the later
+# entries never appeared and the published stream froze on one image.
 # That is why camera 4 only ever saw one of the two photos.
 #
 # loop.mp4 is those same photos rendered to a real 11s clip (7s fire, 4s

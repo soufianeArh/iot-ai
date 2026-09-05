@@ -1,18 +1,10 @@
 <script setup>
 /*
- * Full-screen image viewer: click a snapshot, inspect it, close.
+ * Full-screen viewer for a snapshot: zoom and pan on what's otherwise just a
+ * 120px thumbnail, too small to actually check the model's box.
  *
- * Snapshots are 120px thumbnails in a table, which is useless for the thing
- * they exist for - checking whether the box the model drew is actually around
- * a cow. So this opens the full frame with zoom and pan.
- *
- * Deliberate details:
- *   - Escape closes, and so does a click on the backdrop. Both are what people
- *     try first; a modal that only closes via its own button feels stuck.
- *   - Page scrolling is locked while open, or the background slides under the
- *     overlay when you use the wheel to zoom.
- *   - The close button is at the INLINE end, so it lands top-left in Arabic
- *     and top-right in English without an RTL-specific rule.
+ * Escape and a click on the backdrop both close it. Page scroll is locked
+ * while open so the mouse wheel only zooms, not scrolls the page underneath.
  */
 import { ref, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -43,8 +35,7 @@ function reset() {
 function setZoom(next) {
   const clamped = Math.min(MAX, Math.max(MIN, next))
   zoom.value = clamped
-  // Back at 1x there is nothing to pan to, and leaving an old offset in place
-  // means the image sits off-centre for no visible reason.
+  // Reset pan back at 1x zoom, or the image stays off-centre.
   if (clamped === 1) { panX.value = 0; panY.value = 0 }
 }
 
@@ -76,8 +67,7 @@ function onKey(event) {
   else if (event.key === '0') reset()
 }
 
-// Open/close side effects live here rather than in every caller: the parent
-// only has to set `src`.
+// Handles open/close side effects here so the parent only has to set `src`.
 watch(() => props.src, (value) => {
   reset()
   if (value) {

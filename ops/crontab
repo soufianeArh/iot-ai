@@ -1,6 +1,4 @@
-# Backup runs before retention, not after: this way each day's dump still
-# has that day's about-to-be-deleted rows in it - retention removing them
-# from the live DB half an hour later doesn't remove them from the archive.
-# Times are container-local (UTC unless TZ is set).
+# Backup runs before retention, so each day's dump still has the rows that
+# are about to be deleted. Times are container-local (UTC unless TZ is set).
 0 2 * * * . /app/env.sh && python3 /app/backup.py >> /proc/1/fd/1 2>&1
 30 2 * * * . /app/env.sh && python3 /app/retention.py >> /proc/1/fd/1 2>&1

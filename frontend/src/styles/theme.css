@@ -1,20 +1,13 @@
 /*
  * MQ-AI theme.
  *
- * Two rules run through this file.
+ * Blue is the brand colour; green/amber/red stay reserved for status and
+ * severity, since this is an alerting dashboard and those need to stay
+ * readable at a glance.
  *
- * 1. BLUE IS THE BRAND, GREEN IS A STATUS.
- *    This is an alerting dashboard: green already means "reachable", "online",
- *    "running". Spending it on chrome would cost the one colour that has to be
- *    readable at a glance. Blue is status-neutral, so it carries identity.
- *    Alert severity is amber and red, and red-on-green is the worst pairing
- *    for colour-blind users - another reason the frame stays blue.
- *
- * 2. EVERY DIRECTIONAL PROPERTY IS LOGICAL.
- *    margin-inline-start, not margin-left. padding-inline, not padding-left
- *    plus padding-right. text-align: start, not left. Arabic then works by
- *    setting dir="rtl" on <html> and nothing else - no mirrored stylesheet,
- *    no per-rule overrides. Break this rule once and RTL starts leaking.
+ * Directional CSS uses logical properties (margin-inline-start, not
+ * margin-left) throughout, so dir="rtl" on <html> is the only thing Arabic
+ * needs, no mirrored stylesheet or per-rule overrides.
  */
 
 :root {
@@ -91,8 +84,7 @@ body {
 .topbar nav a:hover { background: rgba(255, 255, 255, .1); color: #fff; }
 .topbar nav a.router-link-active { background: var(--brand-600); color: #fff; }
 
-/* margin-inline-start, so the language picker sits at the trailing edge in
-   both directions without a single RTL override. */
+/* Keeps the language picker at the trailing edge in both directions. */
 .topbar .spacer { margin-inline-start: auto; }
 
 main { padding: var(--gap); max-width: 1200px; margin: 0 auto; }
@@ -193,14 +185,10 @@ code.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8
 
 /* --------------------------------------------------------------- scroll -- */
 /*
- * Capped-height regions. The number of visible rows is passed as --rows and
- * multiplied by a row height, rather than a hard pixel max-height: the tables
- * differ (a text row is ~2.3rem, an alert row carrying a thumbnail is far
- * taller), and hard-coding one number would clip one table and leave the other
- * with dead space.
- *
- * The header stays put because only the tbody area scrolls - the wrapper caps
- * the whole table and `position: sticky` pins the header inside it.
+ * Capped-height scroll regions. Height is --rows * --row-h rather than a
+ * fixed pixel value, since row height differs per table (a thumbnail row is
+ * much taller than a plain text row). The header stays visible via
+ * position: sticky on the wrapper.
  */
 .scroll-rows {
   max-height: calc(var(--rows, 10) * var(--row-h, 2.45rem) + 2.6rem);
@@ -212,8 +200,7 @@ code.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .8
   top: 0;
   background: var(--surface);
   z-index: 1;
-  /* The sticky header sits above scrolled content, and a border-bottom on a
-     sticky cell does not travel with it - so the line is drawn as a shadow. */
+  /* border-bottom doesn't scroll with a sticky cell, so use a shadow instead. */
   box-shadow: inset 0 -1px 0 var(--border);
 }
 

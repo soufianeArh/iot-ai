@@ -1,16 +1,13 @@
 """
 Synthetic drone-style aerial frames: a crop fire and a field flooding.
+Procedural, no source images and no network.
 
-Procedural - no source images, no network.
+Two things do most of the work for realism: fbm() layers fractal noise so
+detail exists at every scale instead of one smooth blur, and warp() pushes
+pixels around with another noise field so smoke curls and burn scars come
+out ragged instead of a perfect oval.
 
-Two things do most of the work for realism:
-
-  fbm()   fractal noise (several octaves). Nature has detail at every scale;
-          a single Gaussian blur gives smooth blobs that read as cartoons.
-  warp()  domain warping - push pixels around using another noise field.
-          This is what makes smoke curl and burn scars ragged rather than oval.
-
-All colours are BGR, because that is what OpenCV writes.
+All colours are BGR, since that's what OpenCV writes.
 """
 import numpy as np
 import cv2
@@ -91,7 +88,7 @@ def field(rng, crop, soil, angle, period):
 
 
 def add_track(img, rng, angle, offset, width):
-    """A dirt access track - gives the eye something to judge scale by."""
+    """A dirt access track, giving the eye something to judge scale by."""
     t = np.deg2rad(angle)
     d = np.abs(XX * np.sin(t) - YY * np.cos(t) + offset + (fbm(rng, 60, 2) - .5) * 18)
     m = cv2.GaussianBlur(np.clip((width - d) / 7.0, 0, 1), (0, 0), 2)
@@ -113,7 +110,7 @@ def add_treeline(img, rng, y0, thickness):
 
 
 def camera(img, rng, blur=0.7, noise=2.6):
-    """Vignette, slight defocus, sensor noise - the tells of a real frame."""
+    """Vignette, slight defocus, sensor noise: the tells of a real frame."""
     r = np.sqrt(((XX - W / 2) / (W / 2)) ** 2 + ((YY - H / 2) / (H / 2)) ** 2)
     img = img * (1.0 - 0.22 * np.clip(r - 0.45, 0, 2) ** 2)[..., None]
     img = cv2.GaussianBlur(img, (0, 0), blur)
@@ -147,7 +144,7 @@ def fire_scene(seed, cx, cy, size, wind, angle, crop, soil):
     front = np.clip(lead - cv2.GaussianBlur(lead, (0, 0), 11) * 1.06, 0, 1)
     front = cv2.GaussianBlur(front, (0, 0), 2) * 6.0
 
-    # Break it into separate burning cells - a continuous ring reads as a donut.
+    # Break it into separate burning cells, since a continuous ring reads as a donut.
     cells = np.clip(fbm(rng, 6, 5) * 2.2 - 0.55, 0, 1)
     front = np.clip(front * cells, 0, 1)
 
@@ -221,14 +218,14 @@ def flood_scene(seed, angle, canal_offset, crop, soil):
     # alpha is tied to depth rather than being flat.
     water = (np.asarray([78, 100, 122], np.float32) * (1 - depth[..., None])
              + np.asarray([104, 100, 86], np.float32) * depth[..., None])
-    # Semi-transparent at the margins on purpose: the rows have to show
-    # through the shallows, or it looks like grey paint rather than water.
+    # Semi-transparent at the margins: the rows have to show through the
+    # shallows, or it looks like grey paint rather than water.
     a = np.clip(sheet * (0.42 + 0.55 * depth), 0, 1)[..., None]
     img = img * (1 - a) + water * a
 
-    # Sky reflected off the surface - the giveaway that it is water and not
-    # bare mud. It has to be broad and gentle: high-frequency speckle here
-    # reads as frost, which is exactly what it looked like at first.
+    # Sky reflected off the surface, the giveaway that it is water and not
+    # bare mud. Has to be broad and gentle, since high-frequency speckle
+    # here reads as frost instead.
     sheen = np.clip(fbm(rng, 46, 2) * 1.5 - 0.62, 0, 1) * sheet * depth
     img = img + np.asarray([206, 196, 178], np.float32) * \
         cv2.GaussianBlur(sheen, (0, 0), 12)[..., None] * 0.40

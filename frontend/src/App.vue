@@ -23,8 +23,7 @@ function onLocaleChange(event) {
       <RouterLink to="/ask">{{ t('nav.ask') }}</RouterLink>
     </nav>
 
-    <!-- margin-inline-start:auto, so this sits at the trailing edge in both
-         directions without an RTL-specific rule. -->
+    <!-- margin-inline-start:auto keeps this at the trailing edge either way. -->
     <div class="spacer"></div>
 
     <label class="lang">

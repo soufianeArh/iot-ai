@@ -1,16 +1,13 @@
-// One place that talks to the backend.
-//
-// Paths are relative on purpose: in dev Vite proxies them, in production nginx
-// serves this app and the APIs from the same origin. So there is no base URL to
-// configure, no CORS, and dev and prod make byte-identical requests.
+// Talks to the backend. Paths are relative: Vite proxies them in dev, and
+// nginx serves this app plus the APIs from the same origin in prod, so
+// there's no base URL to configure and no CORS.
 
 async function request(url, options) {
   const res = await fetch(url, options)
   const type = res.headers.get('content-type') || ''
 
   if (!type.includes('application/json')) {
-    // Almost always nginx returning its own HTML error page because a service
-    // is down. Saying so beats "Unexpected token < in JSON".
+    // Usually nginx's own HTML error page when a backend service is down.
     throw new Error(`${res.status} - service unavailable (expected JSON)`)
   }
 
@@ -45,9 +42,7 @@ export const api = {
   // first, instead of the latest value of every property.
   deviceHistory: (id, key, limit = 200) =>
     get(`/api/devices/${id}/properties?key=${encodeURIComponent(key)}&limit=${limit}`),
-  // deviceCode/productKey pairs MQTT messages arrived for but that matched no
-  // registered device - a bad payload never touches the DB, so this is the
-  // only place that trace is visible instead of buried in a backend log.
+  // MQTT traffic from a deviceCode/productKey pair nobody registered.
   unregisteredDevices: () => get('/api/devices/unregistered'),
 
   // cameras

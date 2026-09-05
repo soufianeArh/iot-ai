@@ -17,20 +17,16 @@ const onlyOpen = ref(false)
 const busy = ref(false)
 const formError = ref('')
 
-// Pagination for the alerts table. The summary counts are unbounded (every
-// alert ever raised); the list was hard-capped at 50 with no way to reach
-// anything older. Growing the same `limit` each "load more" - rather than an
-// OFFSET - means every fetch is still just "the newest N", so a poll landing
-// mid-load can never duplicate or skip a row the way OFFSET pagination would
-// under a live-inserting table.
+// Pagination for the alerts table: grows the same `limit` on "load more"
+// instead of using an OFFSET, so a poll landing mid-load can't duplicate or
+// skip a row the way OFFSET pagination could on a table still getting inserts.
 const ALERTS_PAGE = 50
 const alertsLimit = ref(ALERTS_PAGE)
 // A full page back means there may be more; the exact total sits in
 // `summary` already; see `alertsTotal` below.
 const hasMoreAlerts = computed(() => alerts.value.length >= alertsLimit.value)
-// The `alerts` fetch here is only ever filtered by `acknowledged`, so it lines
-// up exactly with one of these two summary counts - never invent a number
-// the summary can't back up.
+// Filtered only by `acknowledged`, so this always matches one of the two
+// summary counts below instead of inventing a number.
 const alertsTotal = computed(() =>
   onlyOpen.value ? (summary.value.unacknowledged || 0) : (summary.value.total || 0))
 
@@ -55,9 +51,8 @@ function openShot(a) {
   }
 }
 
-// Real class names, fetched once. This is the whole reason the label field is
-// a dropdown: typed by hand, "vehicle" or "car" are accepted, saved, and then
-// never match anything - the rule looks healthy and silently never fires.
+// Real class names, fetched once. It's why label is a dropdown and not free
+// text: a typed "vehicle" would save fine and just never match anything.
 const labels = ref({ all: [], byModel: {} })
 const freeText = ref(false)
 
@@ -73,9 +68,8 @@ const blank = {
   cooldownSeconds: 60, severity: 'WARNING',
 }
 
-// Whatever any sensor has actually reported, so the property box offers real
-// keys instead of asking the user to remember that it is "soilMoisture" and
-// not "soil_moisture" - the same silent-mismatch trap as the class labels.
+// Real property keys already reported by some sensor, so this has the same
+// dropdown safety net as the class labels above.
 const propertyKeys = ref([])
 const form = ref({ ...blank })
 
@@ -151,8 +145,7 @@ const severityText = (sev) => severityTextRaw(sev, t)
 
   <div class="grid">
     <!-- Fields match /ai/alerts/summary exactly: unacknowledged, total,
-         bySeverity. Inventing `open` and `lastHour` here rendered a confident
-         0 next to a total of 457 - a wrong number is worse than no number. -->
+         bySeverity, nothing invented that the summary can't back up. -->
     <div class="card">
       <div class="stat">{{ $n(summary.unacknowledged || 0, 'plain') }}</div>
       <div class="stat-label">{{ t('alerts.openAlerts') }}</div>
@@ -186,10 +179,8 @@ const severityText = (sev) => severityTextRaw(sev, t)
 
       <label v-if="form.kind === 'detection'" class="field">
         <span>{{ t('common.label') }}</span>
-        <!-- Not forced ltr/dir here: the displayed text is now translated for
-             reading, even though :value stays the raw English class name the
-             model actually outputs - only the free-text fallback below needs
-             the Latin, left-to-right typing constraint. -->
+        <!-- Displayed text is translated; :value stays the raw model class
+             name. Only the free-text fallback below needs LTR/Latin. -->
         <select v-if="!freeText" v-model="form.label" required>
           <optgroup v-for="(classes, model) in labels.byModel" :key="model"
                     :label="modelText(model, locale)">

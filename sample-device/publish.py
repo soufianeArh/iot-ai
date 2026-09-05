@@ -1,33 +1,16 @@
 """
-A fake field sensor: temperature, humidity and soil moisture over MQTT.
+A fake field sensor: publishes temperature, humidity and soil moisture over
+MQTT. Replace it with a real sensor and nothing downstream changes, since
+device-service only ever sees a topic and a JSON payload.
 
-The device-side mirror of sample-camera. Replace it with a real sensor and
-nothing downstream changes - device-service only ever sees a topic and a JSON
-payload, and does not know or care what produced them.
+The reading is not a plain sine wave, since that looked obviously fake:
+identical humps every hour, same peak height to the decimal. It's built
+from a daily cycle, a slow random weather drift, occasional events like a
+passing cloud or irrigation, and small independent sensor noise, so the
+shape stays meaningful for thresholds without ever repeating exactly.
 
-WHY THIS IS NOT A SINE WAVE
-
-The first version was, and it looked wrong immediately: six identical humps on
-an hour-long chart, every peak the same height to a decimal place. Real traces
-never do that, and perfect repetition trains you to read the axis instead of
-the data.
-
-So the signal is built from four parts, roughly what a real reading is made of:
-
-  daily cycle  asymmetric - air warms faster after dawn than it cools after
-               dusk, so the curve is not a symmetric sine
-  weather      a slow mean-reverting random walk, so no two cycles match and
-               today differs from yesterday
-  events       a passing cloud drops temperature briefly; irrigation lifts
-               soil moisture in a step, at an unpredictable moment
-  noise        small and independent - the sensor itself
-
-There is still a clear daily shape, so thresholds and alerts stay meaningful,
-but nothing lines up on a grid.
-
-It publishes under a productKey/deviceCode that must ALREADY EXIST:
-device-service ignores messages from a device it has never been told about,
-which is correct and worth seeing rather than papering over.
+Publishes under a productKey/deviceCode that must already exist.
+device-service ignores messages from an unknown device.
 """
 import json
 import logging
@@ -48,9 +31,9 @@ PRODUCT_KEY = os.getenv("PRODUCT_KEY", "pk-test")
 DEVICE_CODE = os.getenv("DEVICE_CODE", "C900")
 INTERVAL = float(os.getenv("PUBLISH_INTERVAL_SECONDS", "20"))
 
-# iot/{productKey}/{deviceCode}/{action} - see DeviceTopic.java. A topic that
-# does not match this shape is dropped without comment, so it is built from
-# the parts rather than written out as one string.
+# iot/{productKey}/{deviceCode}/{action}, see DeviceTopic.java. Built from
+# the parts rather than written as one string, since a topic that doesn't
+# match this shape is dropped without comment.
 TOPIC = f"iot/{PRODUCT_KEY}/{DEVICE_CODE}/properties"
 
 # A day compressed into DAY_SECONDS. An hour by default: the "last hour" chart
@@ -65,10 +48,8 @@ PHASE_OFFSET = float(os.getenv("PHASE_OFFSET_SECONDS", "0"))
 TEMP_BIAS = float(os.getenv("TEMP_BIAS", "0"))
 HUMIDITY_BIAS = float(os.getenv("HUMIDITY_BIAS", "0"))
 
-# Each device gets its own random stream, seeded from its code. Two containers
-# started in the same second would otherwise seed identically and generate the
-# same "random" weather - which is the duplicate-looking data this exists to
-# avoid.
+# Each device gets its own random stream, seeded from its code, so two
+# containers started in the same second don't generate identical weather.
 rng = random.Random(f"{PRODUCT_KEY}/{DEVICE_CODE}")
 
 
@@ -76,9 +57,8 @@ class Sensor:
     """Holds the state a real sensor's surroundings would have."""
 
     def __init__(self):
-        # Mean-reverting drift - the "weather". Kept between readings, which is
-        # the point: independent noise per sample reads as jitter, while a
-        # random walk reads as conditions changing.
+        # Mean-reverting drift, the "weather". Kept between readings so it
+        # reads as conditions actually changing, not just per-sample jitter.
         self.weather = 0.0
         self.soil = 46.0
         self.cloud = 0.0                # a passing cloud, decaying
@@ -115,8 +95,8 @@ class Sensor:
         temperature = (22.0 + TEMP_BIAS + 6.5 * warmth
                        + self.weather - self.cloud + rng.gauss(0, 0.15))
 
-        # Humidity opposes temperature but not exactly - its own drift term is
-        # what stops the two lines being mirror images of each other.
+        # Humidity opposes temperature but not exactly, thanks to its own
+        # drift term, so the two lines aren't mirror images.
         humidity = (60.0 + HUMIDITY_BIAS - 14.0 * warmth
                     - 1.5 * self.weather + 2.0 * self.cloud + rng.gauss(0, 0.8))
 

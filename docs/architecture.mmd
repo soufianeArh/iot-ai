@@ -1,0 +1,84 @@
+%%{init: {'flowchart': {'curve': 'basis', 'nodeSpacing': 50, 'rankSpacing': 80}}}%%
+flowchart LR
+    subgraph Clients[" "]
+        browser["Browser (Vue app)"]
+        devices["IoT Devices"]
+        cameras["RTSP Cameras"]
+    end
+
+    subgraph Edge[" "]
+        nginx["nginx (reverse proxy, port 80)"]
+    end
+
+    subgraph Services[" "]
+        device_service["device-service (Java / Spring, port 8080)"]
+        video_service["video-service (Python / Flask, port 6000)"]
+        ai_service["ai-service (port 7000): YOLO detection plus LLM chat"]
+    end
+
+    subgraph Infra[" "]
+        emqx["EMQX (MQTT broker)"]
+        mediamtx["MediaMTX (RTSP in, HLS/WebRTC out)"]
+        llm["LLM endpoint (Groq or Ollama): powers the chat"]
+    end
+
+    subgraph Data[" "]
+        postgres[("PostgreSQL (public / video / ai schemas)")]
+        snapshots[("snapshots volume")]
+    end
+
+    maintenance["maintenance (retention.py plus backup.py)"]
+
+    browser --> nginx
+    nginx -->|api, actuator| device_service
+    nginx -->|video| video_service
+    nginx -->|ai| ai_service
+    nginx -.->|hls, whep| mediamtx
+    nginx -.->|static files| snapshots
+
+    devices --> emqx
+    device_service -->|subscribe| emqx
+    device_service --> postgres
+
+    cameras --> mediamtx
+    video_service -->|config API| mediamtx
+    video_service --> postgres
+
+    ai_service -.->|camera lookup| video_service
+    ai_service -->|RTSP pull| mediamtx
+    ai_service -.->|poll rules| device_service
+    ai_service --> llm
+    ai_service --> postgres
+    ai_service -->|writes| snapshots
+
+    maintenance --> postgres
+    maintenance --> snapshots
+
+    classDef client fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a;
+    classDef edge fill:#e5e7eb,stroke:#374151,color:#111827;
+    classDef service fill:#dcfce7,stroke:#15803d,color:#14532d;
+    classDef media fill:#ffedd5,stroke:#c2410c,color:#7c2d12;
+    classDef broker fill:#ede9fe,stroke:#6d28d9,color:#4c1d95;
+    classDef data fill:#cffafe,stroke:#0e7490,color:#164e63;
+    classDef external fill:#fce7f3,stroke:#be185d,color:#831843;
+    classDef ops fill:#fef9c3,stroke:#a16207,color:#713f12;
+
+    class browser,devices,cameras client;
+    class nginx edge;
+    class device_service,video_service,ai_service service;
+    class mediamtx media;
+    class emqx broker;
+    class postgres,snapshots data;
+    class llm external;
+    class maintenance ops;
+
+    style Clients fill:transparent,stroke:transparent;
+    style Edge fill:transparent,stroke:transparent;
+    style Services fill:transparent,stroke:transparent;
+    style Infra fill:transparent,stroke:transparent;
+    style Data fill:transparent,stroke:transparent;
+
+    %% Dashed, muted styling for the cross-cutting calls (nginx's two direct
+    %% media/static bypasses, and ai-service's lateral calls to its sibling
+    %% services) so they read as secondary paths instead of layout noise.
+    linkStyle 4,5,12,14 stroke:#9ca3af,stroke-width:1px,stroke-dasharray:4 3;

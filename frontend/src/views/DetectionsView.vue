@@ -16,8 +16,8 @@ const shots = ref([])
 const chosen = ref({})      // cameraId -> model string selected in the dropdown
 const busy = ref(false)
 
-// The snapshot currently open full-screen. A 120px thumbnail cannot answer the
-// question these images exist for - whether the box is actually around a cow.
+// The snapshot open full-screen; a 120px thumbnail is too small to check
+// whether the box is actually around what it claims.
 const zoomed = ref({ src: '', caption: '' })
 
 function openShot(d) {
@@ -33,18 +33,16 @@ const { error, loading, refresh } = usePoll(async () => {
     api.tasks(),
     models.value.length ? Promise.resolve(models.value) : api.models(),
     api.detectionSummary(1440),
-    // 36, not 12: the grid caps at three rows and scrolls, so a dozen
-    // thumbnails fitted entirely inside the cap and there was nothing to
-    // scroll to - the limit, not the layout, was the constraint.
+    // 36, not 12: with only a dozen, everything fit inside the 3-row cap and
+    // there was nothing left to scroll to.
     api.detections({ limit: 36 }),
   ])
   cameras.value = cams
   tasks.value = Object.fromEntries(running.map((x) => [x.cameraId, x]))
   models.value = mods
 
-  // Preselect, or the <select> renders blank: nothing is bound, so the box
-  // looks empty and pressing Start sends no model at all - silently falling
-  // back to `default` and taking any fire or plant rule down with it.
+  // Preselect, or the box renders blank and Start silently sends no model,
+  // falling back to `default` and missing any fire/plant rule.
   for (const camera of cams) {
     if (!chosen.value[camera.id]) chosen.value[camera.id] = 'default'
   }
@@ -106,10 +104,8 @@ async function stop(cameraId) {
             <td>{{ tasks[c.id]?.detectionsSaved ?? '—' }}</td>
             <td class="hint">{{ tasks[c.id]?.lastError || '' }}</td>
             <td>
-              <!-- Running: show what it is actually using, which is the only
-                   way to notice a camera started on the wrong weights.
-                   Translated for reading, same as the picker below -
-                   :value/the API payload always stay the raw model key. -->
+              <!-- Shows the actual running model, so a wrong-weights start is
+                   visible. Translated for display; :value stays the raw key. -->
               <span v-if="tasks[c.id]?.running">{{ modelText(tasks[c.id].model, locale) }}</span>
               <select v-else v-model="chosen[c.id]">
                 <option v-for="m in modelOptions()" :key="m" :value="m">{{ modelText(m, locale) }}</option>

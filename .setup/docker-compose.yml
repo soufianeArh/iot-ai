@@ -3,10 +3,7 @@ services:
   PostgresSQL:
     image: postgres:18
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     ports:
       - "0.0.0.0:5434:5432"
@@ -29,10 +26,7 @@ services:
   Redis:
     image: redis:7.4.8
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     ports:
       - "0.0.0.0:6379:6379"
@@ -64,10 +58,7 @@ services:
   EMQX:
     image: emqx/emqx:5.8.7
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     ports:
       - "1883:1883"    # MQTT
@@ -94,10 +85,7 @@ services:
     build:
       context: ../device-service
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -125,10 +113,7 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     volumes:
       - ../media/mediamtx.yml:/mediamtx.yml:ro
@@ -149,10 +134,7 @@ services:
     build:
       context: ../video-service
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -172,22 +154,14 @@ services:
     networks:
       - easyaiot-network
 
-  # A fake IoT device, the MQTT-side mirror of the fake cameras: publishes
-  # temperature, humidity and soil moisture on a loop so the devices page shows
-  # live data rather than whatever was last sent by hand.
-  #
-  # It publishes as an EXISTING device (pk-test / C900 = sensor-01).
-  # device-service drops messages from a device it does not know, which is
-  # correct - so if this ever appears to do nothing, check the device exists
-  # before suspecting the broker.
+  # Fake IoT device: publishes temperature, humidity and soil moisture on a
+  # loop so the devices page has live data. Publishes as pk-test/C900, which
+  # must already be registered, or device-service just drops the messages.
   sample-device:
     build:
       context: ../sample-device
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       EMQX:
@@ -204,19 +178,13 @@ services:
     networks:
       - easyaiot-network
 
-  # A second sensor, in a greenhouse: same image, different device code.
-  #
-  # Warmer, damper, and a quarter-cycle ahead of the field sensor. Identical
-  # readings on two devices would look like one value written to two rows -
-  # and would hide the real bug where it actually was.
+  # A second sensor, in a greenhouse: same image, different device code and
+  # bias, so it doesn't just mirror the field sensor's readings.
   sample-device-2:
     build:
       context: ../sample-device
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       EMQX:
@@ -233,53 +201,28 @@ services:
     networks:
       - easyaiot-network
 
-  # ---- Phase 7: fake cameras, so YOLO has something real to detect ----
-  # This is the cameras' own RTSP server, and it is SHARED: drone-camera
-  # publishes to /drone and land-camera to /land on this one server. Point a
-  # real camera URL at video-service instead and none of this is needed -
-  # nothing downstream knows the difference.
+  # Shared RTSP server for the sample cameras below: drone-camera publishes
+  # to /drone, land-camera to /land. A real camera would just point at
+  # video-service instead, with nothing downstream needing to change.
   sample-camera-rtsp:
     image: bluenviron/mediamtx:latest
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     expose:
       - "8554"
     networks:
       - easyaiot-network
 
-  # The original /live publisher (YOLO's bus.jpg and zidane.jpg) was removed
-  # once cameras 4 and 5 covered the same ground with better content. To bring
-  # it back: restore a service built from the sample-camera directory with
-  # RTSP_TARGET pointing at .../live, then re-register the camera with
-  #   POST /video/camera  {"name":"sample-cam","rtspUrl":"rtsp://...:8554/live"}
-  #
-  # NOTE what is deliberately NOT removed:
-  #   * sample-camera-rtsp - one server, three paths (/live, /drone, /land).
-  #     Deleting it would take cameras 4 and 5 down with it.
-  #   * the sample-camera directory - it is the build context for drone-camera
-  #     and land-camera too.
-
   # A second fake camera: synthetic drone frames of a crop fire and a flooded
-  # field. Same image as sample-camera - publish.sh takes its destination from
-  # RTSP_TARGET and its content from /samples, so a different camera is a
-  # different env var and a different volume, not a different build.
-  #
-  # One RTSP server hosts both: sample-camera-rtsp serves /live and /drone.
-  #
-  # Note these frames detect nothing under COCO weights - there is no "fire"
-  # or "flood" class. They are here for a custom-trained model later.
+  # field. Same image as sample-camera, just a different RTSP_TARGET and a
+  # different /samples volume. COCO weights won't detect fire or flood; these
+  # frames are here for a custom-trained model later.
   drone-camera:
     build:
       context: ../sample-camera
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       - sample-camera-rtsp
@@ -297,17 +240,13 @@ services:
     networks:
       - easyaiot-network
 
-  # A third fake camera: farm stills - birds, a cow, a fire, people. Same
-  # image and same publish script as the others; only the volume and the
-  # RTSP path differ. One RTSP server hosts /live, /drone and /land.
+  # A third fake camera: farm stills including birds, a cow, a fire, people.
+  # Same image and script as the others, just a different volume and path.
   land-camera:
     build:
       context: ../sample-camera
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       - sample-camera-rtsp
@@ -318,21 +257,13 @@ services:
     networks:
       - easyaiot-network
 
-  # A fourth fake camera: leaf close-ups for the plant-disease model.
-  #
-  # Honest about what this is: disease detection needs a leaf filling the
-  # frame, which no field camera provides - the lesions are millimetres across
-  # and simply are not in a wide shot. Treat this camera as an inspection
-  # bench rather than surveillance; the natural production shape is someone
-  # photographing a suspect leaf and uploading it.
+  # A fourth fake camera: leaf close-ups for the plant-disease model, which
+  # needs a leaf filling the frame rather than a wide surveillance shot.
   plant-camera:
     build:
       context: ../sample-camera
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       - sample-camera-rtsp
@@ -343,26 +274,15 @@ services:
     networks:
       - easyaiot-network
 
-  # ---- Phase 8b: local LLM runtime for the chat assistant ----
-  # Ollama is the SERVER; the model is pulled into it separately and lives in
-  # the named volume:
-  #     docker exec ollama ollama pull qwen2.5:1.5b
-  # Without the volume that download repeats on every recreate.
-  #
-  # It speaks the OpenAI /v1/chat/completions API, so ai-service can be pointed
-  # at Groq/OpenAI/Anthropic instead by changing LLM_BASE_URL alone.
+  # Local LLM runtime for the chat assistant. Ollama is just the server; pull
+  # a model into it separately (docker exec ollama ollama pull qwen2.5:1.5b),
+  # kept in the named volume below so it survives a recreate.
   ollama:
     image: ollama/ollama:latest
-    # NOT "always": this host cannot afford a local model alongside the stack,
-    # so the chat runs on a hosted API and this service is opt-in. With
-    # restart: always it came back on every Docker restart and quietly ate the
-    # memory that was the reason for switching away from it.
-    # Start it deliberately: docker compose up -d ollama
+    # Opt-in only: this host can't run a local model alongside the rest of
+    # the stack, so chat defaults to a hosted API instead.
     restart: "no"
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     expose:
       - "11434"
@@ -374,14 +294,8 @@ services:
       - OLLAMA_KEEP_ALIVE=5m
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_NUM_PARALLEL=1
-    # CPU-only inference is genuinely core-bound: llama.cpp parallelizes
-    # matrix ops across whatever cores the container can see, so a tight cap
-    # here directly costs latency, not just fairness. 2.0 was set from dev's
-    # own 8-core budget (see ai-service's own cpus: 4.0 next to it) and never
-    # revisited for a deploy target with more headroom - on a 20-core host
-    # that was measured mostly idle, it left real speed on the table. Still
-    # capped, not unlimited: inference must never be able to starve the
-    # healthchecks of ai-service or anything else in this stack.
+    # Capped so it can't starve the rest of the stack, but this is CPU
+    # inference, so a bigger deploy target should raise OLLAMA_CPUS.
     cpus: ${OLLAMA_CPUS:-2.0}
     healthcheck:
       test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
@@ -392,18 +306,9 @@ services:
     networks:
       - easyaiot-network
 
-  # One-shot: loads the model into ollama's memory the moment it is healthy,
-  # so the first real chat request is never the one paying the cold-load cost
-  # (measured ~105s for qwen2.5:7b on CPU - long enough to 524 through a
-  # Cloudflare quick tunnel, whose ~100s edge timeout cannot be raised).
-  # Same image as ollama itself - no new dependency - with its entrypoint
-  # overridden to run the CLIENT (`ollama run`) against the already-running
-  # server instead of starting another server. Exits either way (`|| true`):
-  # a failed warmup should cost the first request some latency, not block
-  # the deploy.
-  #
-  # opt-in, same as ollama: docker compose up -d ollama-warmup
-  # (pulls ollama up too, via depends_on, if it is not already running)
+  # Loads the model into memory as soon as ollama is healthy, so the first
+  # real chat request isn't the one paying the cold-load cost. Opt-in, same
+  # as ollama: docker compose up -d ollama-warmup.
   ollama-warmup:
     image: ollama/ollama:latest
     restart: "no"
@@ -423,10 +328,7 @@ services:
     build:
       context: ../ai-service
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -439,67 +341,41 @@ services:
       - MEDIA_RTSP_BASE=rtsp://mediamtx:8554
       - SNAPSHOT_DIR=/snapshots
       - SAMPLE_INTERVAL_SECONDS=3
-      # Measured, not guessed. On the sample camera real detections cluster
-      # high (bus 0.88-0.89, person median 0.83) while the false positives on
-      # content COCO has no class for sit at 0.43-0.63. 0.65 lands in the gap:
-      #   0.60 -> keeps 80% of person, 100% of bus, but a junk "cat" at 0.627
-      #           still gets through
-      #   0.65 -> keeps 79% of person, 100% of bus, and that cat is filtered
-      # One point of recall buys the removal of the worst false positive.
+      # Tuned against the sample cameras: high enough to filter obvious false
+      # positives, low enough to keep most real person/bus detections.
       - MIN_CONFIDENCE=0.65
       - TORCH_THREADS=2
       - OMP_NUM_THREADS=2
-      # Named weight sets. The default is COCO (person, bus, ...) which has no
-      # fire class; "fire" detects fire and smoke and nothing else. A task
-      # picks one: POST /ai/tasks/4?model=fire
+      # Extra named weight sets on top of the COCO default: fire detects fire
+      # and smoke only. Pick one per task: POST /ai/tasks/4?model=fire
       - YOLO_EXTRA_MODELS=fire=/models/fire.pt
-      # A transformers detection model, not Ultralytics weights: leaf disease
-      # is only published in that form. 30 PlantDoc classes - see
-      # models/plant-disease/README.md for what it can and cannot tell apart.
+      # A transformers model, not Ultralytics weights, since that's the only
+      # form the leaf disease model is published in. See
+      # models/plant-disease/README.md for what it can tell apart.
       - HF_MODELS=plant=/models/plant-disease
-      # Per-model confidence floors. The plant model scores a genuine tomato
-      # blight at 0.569, which the global 0.65 would throw away before any rule
-      # saw it; the rules then filter properly with their own thresholds.
+      # Per-model confidence floor: the plant model runs lower than the
+      # global MIN_CONFIDENCE so real disease hits aren't dropped early.
       - MODEL_CONFIDENCE=plant=0.40
-      # Tasks live in memory, so nothing analyses anything after a restart
-      # until someone POSTs. This starts the ones that should always be on.
-      # Format: "cameraId:model[,model]" entries separated by ';'.
-      # Cameras 3 and 4 stay idle deliberately - they are for comparing
-      # against camera 5 by hand, not for burning CPU permanently.
+      # Tasks live in memory only, so nothing runs after a restart until this
+      # starts it back up. Format: "cameraId:model[,model]" separated by ';'.
       - AUTOSTART_TASKS=5:default,fire
-      # Phase 8b - chat. Provider-agnostic: any OpenAI-compatible endpoint.
-      # Hosted (Groq) because this host has 8 GB of RAM: a local model and the
-      # rest of the stack together exhaust the WSL2 VM and wedge the engine.
-      # To go back to fully-offline, uncomment the ollama service below and
-      # swap these three lines - no code changes.
+      # Chat assistant, provider-agnostic over any OpenAI-compatible endpoint.
       - DEVICE_SERVICE_URL=http://device-service:8080
-      # Provider-agnostic, and now environment-agnostic too: these three
-      # default to the hosted Groq setup dev has always used, so a dev .env
-      # with only GROQ_API_KEY set needs no change at all. Any specific
-      # deploy overrides LLM_BASE_URL/LLM_MODEL/LLM_API_KEY directly in ITS
-      # OWN .env when it needs a different backend - e.g. a deploy target
-      # where Groq turns out to be platform-blocked (a 403 at Cloudflare's
-      # edge, not a bad key) can point at the local ollama service below
-      # instead, with no code or compose-file change per environment.
+      # Defaults to the hosted Groq API; override these three in a deploy's
+      # own .env to point at a different provider or the local ollama service.
       - LLM_BASE_URL=${LLM_BASE_URL:-https://api.groq.com/openai/v1}
-      # Must support tool calling. gpt-oss-20b is the fast one on Groq that
-      # does; llama-3.3-70b-versatile was retired and 404s.
+      # Must support tool calling.
       - LLM_MODEL=${LLM_MODEL:-openai/gpt-oss-20b}
       - LLM_API_KEY=${LLM_API_KEY:-${GROQ_API_KEY}}
-      # Default matches llm_client.py's own default (120s) - only needs
-      # overriding in a deploy's own .env for a slower local model on CPU,
-      # where a cold model load alone can take longer than that.
+      # Matches llm_client.py's own default; raise it in a deploy's .env for
+      # a slower local model.
       - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-120}
-    # A hard ceiling as well as the thread cap: inference must never be able to
-    # starve the media server or the health checks. Raised from 2 to 4 (of 8)
-    # once the Docker Desktop Kubernetes control plane was turned off - three
-    # cameras running side by side for comparison need more than two cores.
+    # Caps inference so it can't starve the media server or health checks.
     cpus: 4.0
     volumes:
       - snapshots:/snapshots
-      # Third-party weights, mounted rather than baked in: they are large, they
-      # are not ours, and swapping them should not need a rebuild. See
-      # models/README.md for where fire.pt came from and how it was audited.
+      # Third-party weights, mounted rather than baked in so swapping them
+      # doesn't need a rebuild. See models/README.md for provenance.
       - ../models:/models:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:7000/ai/health >/dev/null || exit 1"]
@@ -510,17 +386,13 @@ services:
     networks:
       - easyaiot-network
 
-  # Housekeeping: nightly DB retention + backup. Two independent cron jobs in
-  # one small container - see ../ops/README.md for what each does and why
-  # they must never be coupled to each other.
+  # Nightly DB retention and backup, two independent cron jobs. See
+  # ../ops/README.md for what each does.
   maintenance:
     build:
       context: ../ops
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -537,9 +409,8 @@ services:
     volumes:
       # Read-write: retention.py deletes files here for detections it purges.
       - snapshots:/snapshots
-      # Bind mount, not a named volume: backups need to be easy to scp/rsync
-      # off the host by hand - a named volume buries them in Docker's own
-      # storage path instead of somewhere you'd actually go copy them from.
+      # Bind mount, not a named volume, so backups are easy to scp/rsync off
+      # the host by hand.
       - ../backups:/backups
     networks:
       - easyaiot-network
@@ -548,10 +419,7 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: always
-    # Explicit, not relying on the daemon default: a deploy target may set its
-    # own Docker default-runtime to "nvidia" for other, GPU-dependent services
-    # on the same host - this stack needs none of that, and pinning runc here
-    # keeps it working regardless of what the daemon default is set to.
+    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       device-service:
@@ -561,26 +429,20 @@ services:
       ai-service:
         condition: service_healthy
     ports:
-      # Configurable, not hardcoded: a deploy target may already have
-      # something else bound to 80 (this is the ONLY host port this stack
-      # actually needs to change per-environment - everything else the stack
-      # exposes stayed free on the one shared server this was checked
-      # against). Defaults to 80 so local dev is unaffected; a specific
-      # deploy's own .env sets NGINX_HOST_PORT when 80 is already taken.
+      # Configurable in case a deploy target already has something on 80;
+      # defaults to 80 so local dev is unaffected.
       - "${NGINX_HOST_PORT:-80}:80"
     volumes:
       - ../web/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
       # Never committed - generated per-deploy, see .gitignore.
       - ../web/conf/.htpasswd:/etc/nginx/.htpasswd:ro
-      # Phase 9: the built Vue app is what "/" serves. Built on the host with
-      # `npm run build` in frontend/ - there is no Node in production, nginx
-      # just serves the static output.
+      # The built Vue app, from `npm run build` in frontend/. No Node in
+      # production, nginx just serves the static output.
       - ../web/dist:/usr/share/nginx/app:ro
-      # The hand-written pages, now at /legacy/. Kept until the Vue app has
-      # replaced all of them; delete this line and web/html together.
+      # Older hand-written pages at /legacy/, kept until the Vue app fully
+      # replaces them.
       - ../web/html:/usr/share/nginx/legacy:ro
-      # Python writes the annotated frames, nginx serves them. Read-only here so
-      # the web tier can never modify what the AI tier produced.
+      # Read-only: nginx serves the frames ai-service writes, never edits them.
       - snapshots:/usr/share/nginx/snapshots:ro
     healthcheck:
       # 127.0.0.1 not localhost: localhost resolves to [::1] in this image and

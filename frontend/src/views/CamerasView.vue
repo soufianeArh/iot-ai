@@ -11,20 +11,16 @@ const busy = ref(false)
 const formError = ref('')
 const status = ref('')
 
-// Which camera is being watched, and the HLS url the server told us to use.
-// The url comes from the API rather than being built here on purpose: the
-// cam{id} naming is the server's business, and hardcoding it in the client is
-// how the two drift apart.
+// Which camera is being watched, and the HLS URL from the API (not built
+// here, so client and server can't drift on the cam{id} naming).
 const watching = ref(null)
 const hlsUrl = ref('')
 const videoEl = ref(null)
 let hls = null
 
-// Stall watchdog. hls.js can attach, parse the manifest and then sit there
-// with a black picture - the media server hands over a playlist whose segments
-// are not arriving yet, and nothing about that surfaces as an error. So after
-// attaching we check that the video is genuinely advancing, and if it is not,
-// tear the whole thing down and start again rather than leave a black box.
+// Watchdog for a silent stall: hls.js can attach and parse the manifest while
+// segments never actually arrive, with no error surfaced. Checked here by
+// confirming playback time is advancing, and restarted if it isn't.
 const STALL_SECONDS = 10
 const MAX_RETRIES = 2
 let watchdog = null
@@ -73,16 +69,10 @@ async function watch(camera, isRetry = false) {
     watching.value = camera.id
     hlsUrl.value = info.hlsUrl
 
-    // THE WARM-UP. Do not remove this.
-    //
-    // The stream is pulled on demand, so the FIRST playlist request has to
-    // wake MediaMTX, which then dials the camera over RTSP - measured at
-    // ~20s here. hls.js gives up after 10s and renders nothing at all, with
-    // no error a user would notice. So the wait happens in a plain fetch,
-    // which has no such timeout, and hls.js only ever sees a warm URL.
-    //
-    // Losing this when porting from the old page is exactly why "watch"
-    // silently showed a black box.
+    // Required: MediaMTX pulls RTSP on demand, so the first playlist request
+    // wakes it up, measured at ~20s. hls.js times out after 10s with no
+    // visible error, so warm the URL with a plain fetch first, which has no
+    // such timeout, before handing it to hls.js.
     await warm(info.hlsUrl)
 
     status.value = ''
@@ -125,8 +115,8 @@ async function attach(url) {
     return
   }
 
-  // hls.js is loaded from the page rather than bundled: it is only needed on
-  // this one view, and only on browsers without native HLS.
+  // Loaded on demand, not bundled: only this view needs it, and only on
+  // browsers without native HLS support.
   if (!window.Hls) await loadHlsJs()
   if (!window.Hls || !window.Hls.isSupported()) {
     formError.value = 'this browser cannot play HLS'
@@ -135,12 +125,9 @@ async function attach(url) {
 
   hls = new window.Hls({
     liveDurationInfinity: true,
-    // hls.js's own requests do NOT automatically carry the browser's cached
-    // Basic Auth credentials the way a plain fetch()/XHR from the page does
-    // (see warm() above, which sets this explicitly for exactly that reason)
-    // - without this, the manifest/segment requests 401 even though warm()
-    // just proved the same URL reachable. same-origin, not include: this
-    // never needs to send credentials to a different origin.
+    // hls.js requests don't carry Basic Auth credentials the way a plain
+    // fetch() does (see warm() above), so without this the manifest and
+    // segments 401 even though warm() just proved the URL reachable.
     xhrSetup: (xhr) => { xhr.withCredentials = true },
     fetchSetup: (context, initParams) =>
       new Request(context.url, { ...initParams, credentials: 'same-origin' }),
@@ -150,20 +137,17 @@ async function attach(url) {
   // autoplay never fires without a src, so playback is started explicitly
   // once the manifest is parsed. Allowed because the element is muted.
   hls.on(window.Hls.Events.MANIFEST_PARSED, () => el.play().catch(() => {}))
-  // Without this a fatal error is completely silent - the old page had the
-  // same handler and it is the only way a user learns anything went wrong.
+  // Without this, a fatal hls.js error would be completely silent.
   hls.on(window.Hls.Events.ERROR, (_, d) => {
     if (d.fatal) formError.value = `playback error: ${d.details}`
   })
 }
 
 /**
- * Give playback STALL_SECONDS to actually move, then restart it.
+ * Give playback STALL_SECONDS to move, then restart it.
  *
- * currentTime is the test, not readyState: a stream can report enough data
- * buffered while the clock never advances, which is exactly the black-box
- * case. Comparing the clock against itself catches both "never started" and
- * "started then froze".
+ * Checks currentTime rather than readyState, since a stream can report
+ * enough buffered data while the clock never actually advances.
  */
 function armWatchdog(camera) {
   clearTimeout(watchdog)
@@ -229,8 +213,8 @@ onUnmounted(() => stopWatching())
       </label>
       <label class="field">
         <span>{{ t('cameras.rtspUrl') }}</span>
-        <!-- Machine-facing: forced LTR so a URL is not rendered reversed in
-             Arabic, and autocapitalize off so phones do not send Rtsp://. -->
+        <!-- Machine-facing: forced LTR/no-autocapitalize so the URL isn't
+             reversed or mangled. -->
         <input v-model="form.rtspUrl" class="ltr" required
                dir="ltr" lang="en" spellcheck="false"
                autocapitalize="off" autocomplete="off"

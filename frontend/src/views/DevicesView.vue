@@ -21,18 +21,15 @@ const history = ref({})      // device id -> [{t, v}]
 const rules = ref([])
 const unregistered = ref([]) // deviceCode/productKey pairs seen but not registered
 
-// The device the dashboard is about. One sensor at a time: comparing two on
-// shared axes was pretty but answered the wrong question - you look at a
-// dashboard to judge ONE thing, and thresholds only mean something against
-// the device they apply to.
+// The device the dashboard focuses on, one at a time: thresholds only make
+// sense against the specific device they apply to.
 const selectedId = ref(null)
 
 const selected = computed(() =>
   devices.value.find((d) => d.id === selectedId.value) || null)
 
-// One colour per device, from the brand ramp. Not the status greens and reds:
-// a line on a chart is not a health signal, and reusing those would make an
-// ordinary reading look like a verdict.
+// Brand colours, not status green/red: a normal reading shouldn't look like
+// a verdict.
 const LINE_COLOURS = ['#1761ae', '#c2610a', '#2f7d5c', '#7c4dbe', '#a4231f']
 
 const propertyKeys = computed(() => {
@@ -51,12 +48,9 @@ const series = computed(() => {
     : []
 })
 
-// Thresholds from the device rules that watch this property, drawn on the
-// chart. This is the bit that connects the dashboard to the alerting: you can
-// see why a rule fired, and how close it came the rest of the time.
-// Rules that actually apply to THIS device and THIS property. A rule with no
-// deviceCode is a wildcard and applies to every device, which is why it is
-// included rather than filtered out.
+// Thresholds from any rule watching this device/property, so you can see how
+// close a reading is to firing an alert. A rule with no deviceCode applies
+// to every device, so it's included here too.
 const relatedRules = computed(() => {
   const device = selected.value
   if (!device) return []
@@ -95,9 +89,8 @@ function selectDevice(device) {
 }
 
 async function loadHistory() {
-  // The window is applied client-side because the API takes a row limit, not
-  // a time range. Asking for a generous limit and trimming is one round trip;
-  // adding a `since` parameter would be the better fix if this ever grows.
+  // Window is applied client-side since the API takes a row limit, not a
+  // time range; a `since` param would be the cleaner fix if this grows.
   const wanted = Math.min(500, Math.ceil((minutes.value * 60) / 15) + 20)
   // Only the selected device. Fetching every device's history to draw one
   // line is a request per device per poll, for data nothing displays.
@@ -120,11 +113,9 @@ onMounted(async () => {
   try { rules.value = await api.rules() } catch { rules.value = [] }
 })
 
-// The topic a device must publish to is iot/{productKey}/{deviceCode}/properties
-// (see device-service's MqttSubscriber) - not something the form submits, so it
-// is only ever discoverable by reading the backend. Building it here from the
-// same two fields the form already has means whoever is wiring up the physical
-// device can just copy it, live, before the device even exists yet.
+// Topic format is iot/{productKey}/{deviceCode}/properties (see
+// device-service's MqttSubscriber). Built here from the form fields so it
+// can be copied before the device is even registered.
 const BROKER_URL = `mqtt://${window.location.hostname}:1883`
 const EXAMPLE_PAYLOAD = JSON.stringify({ temperature: 22.4, humidity: 58.1 }, null, 2)
 
@@ -216,8 +207,8 @@ function latest(device, key) {
 
     <TimeSeriesChart :series="series" :markers="markers" :height="220" />
 
-    <!-- Listed as well as drawn: a dashed line tells you a limit exists, but
-         not whether it is scoped to this sensor or applies to every one. -->
+    <!-- Listed as well as drawn, since the line alone doesn't say which
+         device the rule applies to. -->
     <div v-if="relatedRules.length" class="rules-note">
       <div class="hint">{{ t('devices.relatedRules') }}</div>
       <div v-for="r in relatedRules" :key="r.id" class="rule-line">
@@ -244,9 +235,8 @@ function latest(device, key) {
       </label>
       <label class="field">
         <span>{{ t('devices.code') }}</span>
-        <!-- Machine-facing: this string is the MQTT topic segment a device
-             publishes under, so it stays Latin and must not be autocapitalised
-             into something that never matches an incoming message. -->
+        <!-- Machine-facing: forced Latin, no autocapitalize, so it matches
+             the real MQTT topic segment. -->
         <input v-model="form.deviceCode" class="ltr" required maxlength="64"
                dir="ltr" lang="en" spellcheck="false"
                autocapitalize="off" autocomplete="off" placeholder="C900">
@@ -331,9 +321,7 @@ function latest(device, key) {
                 {{ t('devices.noProperties') }}
               </span>
               <div v-else class="row">
-                <!-- The API returns `key` and `value`, not propertyKey /
-                     propertyValue. Reading the wrong names rendered every pill
-                     blank while the data was there all along. -->
+                <!-- API returns `key`/`value`, not propertyKey/propertyValue. -->
                 <span v-for="p in properties[d.id]" :key="p.key" class="pill idle">
                   {{ p.key }}: {{ p.value }}
                 </span>
@@ -365,8 +353,7 @@ function latest(device, key) {
                     border-radius: 6px; font-size: .82rem; overflow-x: auto; direction: ltr; }
 
 .pick { cursor: pointer; }
-/* border-inline-start, so the marker sits on the leading edge in both
-   directions - on the right in Arabic - without an RTL-specific rule. */
+/* box-shadow inset flips sides correctly under RTL, unlike a plain border. */
 .pick.active { background: var(--brand-100); box-shadow: inset 3px 0 0 var(--brand-600); }
 :global([dir="rtl"]) .pick.active { box-shadow: inset -3px 0 0 var(--brand-600); }
 </style>

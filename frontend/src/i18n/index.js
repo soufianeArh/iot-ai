@@ -1,17 +1,12 @@
 /*
  * Four locales, English authoritative.
  *
- * Two decisions worth knowing:
+ * A missing key falls back to English text, not the key name, so the app
+ * works fine with just en.json while fr/ar/zh get filled in over time.
  *
- * FALLBACK IS ENGLISH, ALWAYS. A missing key renders the English string
- * rather than the key name, so the app is fully usable with en.json alone and
- * fr/ar/zh can be filled in at any pace without ever showing `alerts.title`
- * to a user.
- *
- * NUMBERS ARE WESTERN IN EVERY LOCALE, Arabic included. `numberingSystem:
- * 'latn'` forces 123 rather than ١٢٣. This is a technical dashboard - counts,
- * confidences and camera ids are compared against logs and API responses, and
- * mixing numeral systems between the two is a real source of confusion.
+ * Numbers stay Western digits in every locale, Arabic included
+ * (numberingSystem: 'latn'), since this is a technical dashboard and
+ * mixed numeral systems next to logs or API responses would just confuse.
  */
 import { createI18n } from 'vue-i18n'
 
@@ -52,8 +47,8 @@ export const i18n = createI18n({
   legacy: false,
   locale: initialLocale(),
   fallbackLocale: 'en',
-  // The console fills with warnings while fr/ar/zh are still stubs, and the
-  // fallback is the intended behaviour, not a bug worth reporting.
+  // Suppressed: fr/ar/zh are still partial, and falling back to English is
+  // expected, not a bug.
   missingWarn: false,
   fallbackWarn: false,
   messages: { en, fr, ar, zh },
@@ -65,8 +60,8 @@ export function setLocale(code) {
   const entry = LOCALES.find((l) => l.code === code) || LOCALES[0]
   i18n.global.locale.value = entry.code
 
-  // The whole of RTL support is this one attribute. It works only because the
-  // stylesheet uses logical properties throughout - see styles/theme.css.
+  // This attribute is the only RTL switch needed; theme.css uses logical
+  // properties throughout so nothing else has to change.
   document.documentElement.setAttribute('dir', entry.dir)
   document.documentElement.setAttribute('lang', entry.code)
 

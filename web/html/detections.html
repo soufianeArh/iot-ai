@@ -85,10 +85,9 @@ async function j(url, opts) {
   return r.json();
 }
 
-// Which weight sets exist. Fetched once - the list only changes when compose
-// does. A camera detects ONLY the classes of the models it was started with,
-// so this choice is not cosmetic: start on 'default' alone and every fire rule
-// silently stops firing.
+// Which weight sets exist, fetched once since this only changes when compose
+// does. A camera only detects the classes of the models it started with, so
+// starting on 'default' alone silently stops any fire rule from firing.
 let MODELS = ['default'];
 j('/ai/models').then(function (m) { if (m && m.length) MODELS = m; }).catch(function () {});
 
@@ -138,8 +137,8 @@ async function loadSummary() {
 async function loadShots() {
   const rows = await j('/ai/detections?limit=60');
 
-  // One row per detected object, but many objects share one frame - collapse
-  // by snapshot so each image appears once with all of its labels.
+  // One row per detected object, but many objects share one frame, so
+  // collapse by snapshot to show each image once with all its labels.
   const frames = [];
   const seen = {};
   rows.forEach(function (d) {

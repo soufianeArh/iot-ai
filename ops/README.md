@@ -1,8 +1,8 @@
 # ops
 
 Two independent housekeeping jobs, run on a schedule by the `maintenance`
-service in `.setup/docker-compose.yml`. Independent on purpose - see the
-comments at the top of each script for why they must never be coupled.
+service in `.setup/docker-compose.yml`. See the comments at the top of each
+script for why they must never be coupled.
 
 - **`retention.py`** — deletes rows older than `RETENTION_DAYS` (default 30)
   from the live database: `device_property` (every MQTT reading) and

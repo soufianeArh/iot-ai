@@ -1,11 +1,8 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
 /**
- * Run `load` now and every `ms`, and stop when the component goes away.
- *
- * The unmount cleanup is the point: without it, navigating between pages
- * leaves timers running and the app quietly polls every view you have ever
- * visited. Vue makes that easy to forget, because nothing visibly breaks.
+ * Run `load` now and every `ms`, and clear the timer on unmount so switching
+ * pages doesn't leave old polls running in the background.
  */
 export function usePoll(load, ms = 5000) {
   const error = ref('')
