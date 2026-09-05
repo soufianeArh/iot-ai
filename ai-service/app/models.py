@@ -14,6 +14,7 @@ SCHEMA = "ai"
 def utcnow():
     return datetime.now(timezone.utc)
 
+# A detection is a FACT:  "a person was in frame at 10:04:12".
 
 class Detection(db.Model):
     __tablename__ = "detection"
@@ -50,9 +51,7 @@ class Detection(db.Model):
         }
 
 
-# --------------------------------------------------------------------- alerting
-#
-# A detection is a FACT:      "a person was in frame at 10:04:12".
+
 # An alert is a JUDGEMENT:    "something happened a human should look at".
 #
 # The two tables below are that distinction. AlertRule says what counts as worth
@@ -61,16 +60,9 @@ class Detection(db.Model):
 
 SEVERITIES = ("INFO", "WARNING", "CRITICAL")
 
-
+#One condition, evaluated against every analysed frame.
 class AlertRule(db.Model):
-    """
-    One condition, evaluated against every analysed frame.
 
-    Deliberately dumb: a label, a confidence floor, a count and a cooldown. That
-    is enough for "someone is in the yard" and it stays readable. Anything
-    fancier (zones, dwell time, direction of travel) would slot in here without
-    changing the rest of the pipeline.
-    """
     __tablename__ = "alert_rule"
     __table_args__ = {"schema": SCHEMA}
 
@@ -78,7 +70,8 @@ class AlertRule(db.Model):
     name = db.Column(db.String(120), nullable=False)
 
     # "detection" (a camera saw something) or "device" (a sensor reading
-    # crossed a threshold). One table rather than two, because everything
+    # crossed a threshold).
+    # One table rather than two, because everything
     # downstream - cooldown, severity, acknowledgement, the alerts list - is
     # identical for both, and only the CONDITION differs.
     kind = db.Column(db.String(16), nullable=False, default="detection", index=True)
@@ -94,13 +87,11 @@ class AlertRule(db.Model):
     label = db.Column(db.String(64), nullable=True)           # "person", "bus", ...
     min_confidence = db.Column(db.Float, nullable=False, default=0.5)
 
-    # How many of that label must be in ONE frame.
-    # min_count=3 turns "a person" into "a group".
+    # How many of that label must be in ONE frame
+    # min_count=3 turns: "a person" into "a group of 3"
     min_count = db.Column(db.Integer, nullable=False, default=1)
 
-    # ---- device rules only ----
-    # NULL device_code = any device reporting this property, which is what you
-    # want for "any sensor reading over 35" across a whole site.
+    # NULL device_code = for "any sensor reading over 35" across a whole site.
     device_code = db.Column(db.String(64), nullable=True, index=True)
     property_key = db.Column(db.String(64), nullable=True)    # "temperature"
     operator = db.Column(db.String(2), nullable=True)         # ">" or "<"
@@ -135,11 +126,8 @@ class AlertRule(db.Model):
 
 class Alert(db.Model):
     """
-    Something a rule decided was worth reporting.
-
-    `rule_name` is copied in rather than only joined. Deleting a rule must not
-    rewrite history: an alert has to keep saying what it said when it fired.
-    Hence ON DELETE SET NULL on the FK plus a snapshot of the name.
+    rule name is mentioned as FK
+    SELECT rule_name FROM alert
     """
     __tablename__ = "alert"
     __table_args__ = {"schema": SCHEMA}

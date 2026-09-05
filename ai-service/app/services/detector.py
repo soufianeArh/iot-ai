@@ -58,7 +58,7 @@ _lock = threading.Lock()
 
 
 class UnknownModel(Exception):
-    """Asked for a model that was never configured. Message is client-safe."""
+    #Raised when someone asks for a model name that isn't configured
 
 
 def _pairs(spec: str) -> dict:
@@ -75,6 +75,7 @@ def _pairs(spec: str) -> dict:
 
 def _registry() -> dict:
     """name -> (kind, path)."""
+    #builds the full list of available models
     reg = {DEFAULT_MODEL: ("yolo", MODEL_PATH)}
     for name, path in _pairs(EXTRA_MODELS).items():
         reg[name] = ("yolo", path)
@@ -84,8 +85,7 @@ def _registry() -> dict:
 
 
 def available():
-    """What can be asked for, without loading anything. Weights are big and
-    each one costs RAM, so listing must stay free."""
+    """just lists model names, without loading any of them into memory"""
     return sorted(_registry())
 
 
@@ -97,7 +97,10 @@ def confidence_for(name: str) -> float:
 
 
 def _load(name: str):
-    """(kind, model) for a name, loading on first use."""
+    """
+    Loads a model into memory the first time it's asked for,
+    then caches it in _models so it's never reloaded again.
+    """
     entry = _models.get(name)
     if entry is not None:
         return entry
@@ -144,18 +147,26 @@ def _load(name: str):
 
 
 def _names(entry) -> dict:
+    #returns a model's class names dict
     kind, model = entry
     return model.names if kind == "yolo" else model[1].config.id2label
 
 
 def get_model(name: str = None):
-    """The underlying model object. Prefer detect() - this is for callers that
-    genuinely need the library object."""
+    """
+    returns the raw underlying model object,
+    for callers that need direct access (rare — detect() is preferred)
+    """
     return _load(name or DEFAULT_MODEL)[1]
 
 
 def detect(name: str, frame, conf: float = None) -> list:
-    """Run one model over one BGR frame. Uniform output for every family."""
+    """
+    Run one model over one BGR frame. Uniform output for every family.
+    Loads the model (if not already loaded), runs inference on one frame,
+    and normalizes the output to the same shape ({label, confidence, box})
+    regardless of whether it was a YOLO model or a transformers model   underneath
+    """
     name = name or DEFAULT_MODEL
     kind, model = _load(name)
     threshold = conf if conf is not None else confidence_for(name)
@@ -192,13 +203,14 @@ def detect(name: str, frame, conf: float = None) -> list:
 
 
 def class_names(name: str = None):
+    #public wrapper around _names(), for a specific model
     return _names(_load(name or DEFAULT_MODEL))
 
 
 def loaded_classes() -> dict:
-    """Classes of the models already in memory, without loading any.
-
-    Deliberately does not load: reporting what the system CAN detect must never
-    cost a model load, and a model no task has used has nothing to report.
+    """
+    reports classes only for models already loaded in memory
+    deliberately does NOT trigger a load, so just checking
+    "what can this system currently detect" never costs the RAM/time of loading a model nobody's using yet
     """
     return {name: sorted(_names(entry).values()) for name, entry in _models.items()}

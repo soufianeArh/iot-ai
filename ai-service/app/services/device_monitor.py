@@ -1,26 +1,5 @@
 """
 Device threshold rules: alert when a sensor reading crosses a limit.
-
-WHY THIS POLLS RATHER THAN SUBSCRIBING
-
-The obvious design is to evaluate on the MQTT ingest path, in device-service,
-the moment a reading arrives. It was not done that way because alerts live in
-the `ai` schema and device-service owns `device` - having a Java service write
-rows into the Python service's tables couples them at the database, which is
-the coupling hardest to undo later.
-
-The alternative, an MQTT subscription here, is genuinely event-driven but adds
-a broker client, a second consumer group and a reconnection story to a service
-whose job is inference.
-
-So: ai-service polls device-service over HTTP, which it already does for the
-chat tools. The cost is latency - up to POLL_SECONDS between a reading and its
-alert. For "the greenhouse is too hot" that is the right trade; for anything
-needing sub-second reaction it would not be, and the honest fix then is the
-MQTT subscription, not a faster poll.
-
-Cooldown, severity and acknowledgement are shared with detection rules,
-because from the operator's side an alert is an alert.
 """
 import logging
 import os

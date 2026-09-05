@@ -1,4 +1,12 @@
-"""HTTP routes for ai-service. Thin: parse, delegate, serialise."""
+"""
+UI gives cameraID to ai-service
+ai service holds no record of camera. so to get stream
+step1: check video service (calls GET http://video-service:6000/video/camera/{camera_id}) can raise cameralookup error
+the camera url is resolved
+step2: then targets MediaMTX directly (stream_url
+
+HTTP routes for ai-service. Thin: parse, delegate, serialise.
+"""
 import logging
 
 from flask import Blueprint, current_app, jsonify, request
@@ -14,7 +22,9 @@ log = logging.getLogger(__name__)
 
 analysis_bp = Blueprint("analysis", __name__)
 
-
+#CameraLookupError raised in camera_client.py
+#ai-service tries to check a camera's existence by calling out to video-service
+#and it fails (video service unreacheable - reach but no camera record - else)
 @analysis_bp.errorhandler(CameraLookupError)
 def _handle_lookup(exc):
     return jsonify({"status": 404, "error": "Not Found", "message": str(exc)}), 404
@@ -26,6 +36,15 @@ def _handle_task(exc):
 
 
 # ------------------------------------------------------------------ tasks
+"""
+task: analyse a camera (each task has its own thread- each has its own db session) 
+task =  in detection page (ai-servide): 
+start stream → loop: wait interval → grab latest frame → run YOLO 
+→ save detection(s) → check alert rules (creates an Alert if matched) →  repeat
+  No queue. While YOLO is busy on one frame, all frames arriving in the meantime just get thrown away 
+  — only the newest one is kept. When YOLO finishes, it grabs whatever's newest at that moment and repeats. 
+"""
+
 
 @analysis_bp.errorhandler(UnknownModel)
 def _handle_unknown_model(exc):
@@ -33,21 +52,30 @@ def _handle_unknown_model(exc):
 
 
 @analysis_bp.route("/tasks", methods=["GET"])
+#list running only tasks (camera)
 def list_tasks():
+    #cleans out any workers whose thread has silently died (crashed)
     task_manager.reap()
     return jsonify(task_manager.list_all())
 
 
 @analysis_bp.route("/tasks/<int:camera_id>", methods=["POST"])
 def start_task(camera_id):
+    #looks the camera up in video-service (the call that can raise CameraLookupError → 404)
     camera = camera_client.get_camera(camera_id)
+
+    #builds the MediaMTX RTSP URL (rtsp://mediamtx:8554/cam{id}), not the raw camera's own URL
     url = camera_client.stream_url(camera)
     # current_app is a proxy; the worker thread needs the real object.
     app = current_app._get_current_object()
-    # Accepted from the query string or a JSON body, so a fire camera and a
-    # gate camera can run different weights at the same time.
+
+
     body = request.get_json(silent=True) or {}
+   # get the model name to be linked to YOLO
     model_name = request.args.get("model") or body.get("model")
+    #OLO itself has no concept of "interval" at all
+    #interval (ai-service's YOLO sampling)
+    # only affects how often the analysis worker looks at a frame
     interval = request.args.get("interval", type=float) or body.get("interval")
     # Randomises the wait between frames. Only needed when the source itself
     # loops - see InferenceWorker.jitter.

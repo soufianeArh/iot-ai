@@ -1,18 +1,5 @@
 """
 The chat endpoint: an agent loop over the tools in chat_tools.
-
-The loop is the whole idea, and it is smaller than people expect:
-
-    1. send the conversation + the tool schemas to the model
-    2. if the model asked for tools -> run them, append the results, go to 1
-    3. if it answered in prose -> return it
-
-Two or three passes is typical. The cap exists because a small model that has
-lost the thread will happily call the same tool forever.
-
-The server keeps no session: the browser sends the history back each time. That
-is the simplest thing that works, and it means restarting ai-service does not
-drop anyone's conversation.
 """
 import json
 import logging
@@ -152,8 +139,10 @@ def chat():
 
 @chat_bp.route("/chat/health", methods=["GET"])
 def chat_health():
-    """Separate from /ai/health on purpose: the chat being down must not make
-    the container unhealthy and take inference down with it."""
+    """
+    Separate from /ai/health on purpose: the chat being down must not make
+    the container unhealthy and take inference down with it.
+    """
     return jsonify(llm_client.health())
 
 

@@ -1,21 +1,5 @@
 """
 Start the analysis tasks that should always be running, at boot.
-
-The task registry lives in memory, so after every restart nothing analyses
-anything until someone POSTs. For a camera that is meant to be permanently on
-that is a silent outage - the stack looks healthy and no detections appear.
-
-Configured with one variable:
-
-    AUTOSTART_TASKS=5:default,fire;3:default
-
-Two rules this must obey:
-
-  * It runs in a BACKGROUND THREAD, not at import. Resolving a camera means an
-    HTTP call to video-service, which is usually not up yet when ai-service
-    starts - blocking here would deadlock the healthcheck.
-  * It must NEVER raise into the app. A camera that is unplugged, deleted, or
-    misconfigured is a warning in the log, not a container that will not boot.
 """
 import logging
 import os
@@ -49,7 +33,11 @@ def _parse(spec: str):
 
 
 def _start_one(app, camera_id, models, deadline):
-    """Keep trying until the camera resolves or the deadline passes."""
+    """
+    it tries to start analysis for one camera, and if it fails (because video-service isn't up yet),
+    it just waits a bit and tries again up to a max time limit
+    If it still hasn't worked by then, it gives up and logs "start it yourself"
+    """
     while time.monotonic() < deadline:
         try:
             camera = camera_client.get_camera(camera_id)
@@ -58,7 +46,7 @@ def _start_one(app, camera_id, models, deadline):
             log.info("autostart: camera %s running on %r", camera_id, status["model"])
             return True
         except Exception as exc:
-            # Almost always "video-service not up yet" on the first passes.
+            # Almost always "video-service not up yet" on the first passes
             log.debug("autostart: camera %s not ready (%s)", camera_id, exc)
             time.sleep(RETRY_SECONDS)
 

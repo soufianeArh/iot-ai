@@ -30,6 +30,7 @@ def _init_schema(app: Flask):
     with app.app_context():
         lock_key = 0x41494F54
         try:
+            #(pg_advisory_lock/unloc to ensure only one py worker create
             db.session.execute(text("SELECT pg_advisory_lock(:k)"), {"k": lock_key})
             db.session.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
             db.session.commit()

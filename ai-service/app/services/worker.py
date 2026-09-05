@@ -1,15 +1,5 @@
 """
 One inference worker per camera.
-
-The loop is deliberately simple: open the stream, grab a frame every N seconds,
-run YOLO on it, write rows and an annotated JPEG. Everything that can fail
-(stream drops, decode errors, model errors) is caught so one bad camera cannot
-take the service down.
-
-Why sample instead of processing every frame: a 15 fps stream is 15 inferences
-per second per camera. On CPU that is impossible and pointless - nothing in a
-scene changes meaningfully in 66 ms. Sampling every 2s is ~30x less work and
-loses nothing that matters for alerting.
 """
 import logging
 import os

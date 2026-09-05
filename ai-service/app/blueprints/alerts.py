@@ -1,8 +1,4 @@
 """
-HTTP routes for alert rules and the alerts they raise.
-
-Two resources with very different natures:
-
   /ai/rules   full CRUD. A human writes these; they are configuration.
   /ai/alerts  read + acknowledge only. The engine writes these; they are history.
 
@@ -24,13 +20,15 @@ alerts_bp = Blueprint("alerts", __name__)
 
 
 @alerts_bp.errorhandler(RuleError)
+#caches rule error
 def _handle_rule_error(exc):
     return jsonify({"status": 400, "error": "Bad Request", "message": str(exc)}), 400
 
 
-# ---------------------------------------------------------------------- rules
+# --------------------------------------------------------- rules
 
 @alerts_bp.route("/rules", methods=["GET"])
+#returns every AlertRule row, ordered by id, as JSON
 def list_rules():
     rows = AlertRule.query.order_by(AlertRule.id).all()
     return jsonify([r.to_dict() for r in rows])
@@ -48,6 +46,8 @@ def create_rule():
 
 @alerts_bp.route("/rules/<int:rule_id>", methods=["GET"])
 def get_rule(rule_id):
+    #fetch one rule by id, 404 if it doesn't exist
+    # DEAD code in back-front but kep to complete CRUD
     rule = db.session.get(AlertRule, rule_id)
     if rule is None:
         return jsonify({"status": 404, "error": "Not Found"}), 404
@@ -56,11 +56,13 @@ def get_rule(rule_id):
 
 @alerts_bp.route("/rules/<int:rule_id>", methods=["PUT"])
 def update_rule(rule_id):
+    #check if the rule to update already exists
     rule = db.session.get(AlertRule, rule_id)
     if rule is None:
         return jsonify({"status": 404, "error": "Not Found"}), 404
 
     # Partial update: anything absent keeps its current value.
+    #fills the empty fields with old values
     fields = rule_engine.validate(request.get_json(silent=True) or {}, existing=rule)
     for key, value in fields.items():
         setattr(rule, key, value)
@@ -85,7 +87,7 @@ def delete_rule(rule_id):
     return "", 204
 
 
-# --------------------------------------------------------------------- alerts
+# ---------------------------------------------------------- alerts
 
 @alerts_bp.route("/alerts", methods=["GET"])
 def list_alerts():
@@ -124,7 +126,7 @@ def acknowledge(alert_id):
 
 @alerts_bp.route("/alerts/summary", methods=["GET"])
 def summary():
-    """Counts by severity, plus how many are still open."""
+    # counts showing on top of alert page!!
     rows = (db.session.query(Alert.severity, db.func.count(Alert.id))
             .group_by(Alert.severity).all())
     open_count = Alert.query.filter_by(acknowledged=False).count()

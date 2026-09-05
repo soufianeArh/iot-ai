@@ -18,7 +18,7 @@ TIMEOUT = 5
 class CameraLookupError(Exception):
     pass
 
-
+#camrea metdata (no stream,)
 def get_camera(camera_id: int) -> dict:
     try:
         response = requests.get(f"{VIDEO_SERVICE_URL}/video/camera/{camera_id}", timeout=TIMEOUT)
@@ -33,13 +33,5 @@ def get_camera(camera_id: int) -> dict:
 
 
 def stream_url(camera: dict) -> str:
-    """
-    Read frames from the MEDIA SERVER, not from the camera directly.
-
-    Cameras usually allow only a handful of simultaneous RTSP connections, and
-    the browser is already using one. Pulling from MediaMTX means the camera
-    still sees a single connection no matter how many workers and viewers there
-    are - that is the whole point of having a media server.
-    """
     media_rtsp = os.getenv("MEDIA_RTSP_BASE", "rtsp://mediamtx:8554")
     return f"{media_rtsp}/cam{camera['id']}"

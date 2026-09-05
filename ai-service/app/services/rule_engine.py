@@ -50,9 +50,10 @@ class RuleError(Exception):
 def evaluate(camera_id: int, detections: list, snapshot: str | None) -> list:
     """
     Check one analysed frame against every rule that applies to this camera.
-
-    `detections` are the Detection rows just written for this frame. Returns the
-    Alert rows raised, which is usually an empty list - that is the point.
+    the entry point, called from worker.py after detections are saved
+    runs each rule against its
+    matching detections via _apply(), saves any resulting alerts,
+    updates the cooldown cache, logs them, returns the list raised (usually empty).
     """
     rules = _rules_for(camera_id)
     if not rules:
@@ -98,7 +99,13 @@ def evaluate(camera_id: int, detections: list, snapshot: str | None) -> list:
 
 
 def _apply(rule: AlertRule, camera_id: int, candidates: list, snapshot: str | None):
-    """The three filters. Returns an unsaved Alert, or None."""
+    """the actual per-rule logic,
+    3 checks in order:
+      1. filter detections below the rule's min_confidence,
+      2. require at least min_count matching hits (quorum),
+      3. check the rule's cooldown hasn't already fired recently
+    If all three pass, builds and returns an unsaved Alert object
+    """
     # 1. threshold
     hits = [d for d in candidates if d.confidence >= rule.min_confidence]
 
@@ -125,12 +132,8 @@ def _apply(rule: AlertRule, camera_id: int, candidates: list, snapshot: str | No
 
 def _rules_for(camera_id: int) -> list:
     """
-    Rules that apply to this camera: its own, plus the camera_id IS NULL
-    wildcards.
-
-    Queried on every analysed frame rather than cached. At one frame every three
-    seconds that is ~0.3 queries/second/camera on an indexed table - far cheaper
-    than a cache that has to be invalidated whenever a rule is edited.
+    Fetches every rule that should be checked against this camera's frame
+    a DB quer:  run fresh every single time a frame gets analyzed.
     """
     # kind == "detection" only. A device rule has no label so it would match
     # nothing here anyway - but leaving it in the query would still let its
@@ -145,12 +148,9 @@ def _rules_for(camera_id: int) -> list:
 
 def _cooldown_expired(rule: AlertRule, scope) -> bool:
     """
-    `scope` is what the cooldown is counted per: a camera id for a detection
-    rule, or "device:CODE" for a device rule.
+    _last_fired is the cache — a dict of {(rule.id, scope): last_alert_time}.
+  - If there's no record for that key anywhere (not in cache, not in DB either) → nothing has ever fired → cooldown is "expired" by default →
 
-    Per-scope rather than per-rule, so one "temperature over 35" rule can alert
-    about the greenhouse and the field independently instead of the first
-    sensor to breach silencing the rest.
     """
     key = (rule.id, scope)
 
@@ -195,8 +195,7 @@ def forget(rule_id: int):
 
 def validate(payload: dict, existing: AlertRule | None = None) -> dict:
     """
-    Check and normalise a rule from HTTP. Raises RuleError with a message that
-    says what to do, not just what is wrong.
+    This validates and cleans up an alert-rule form before saving it to the DB
     """
     from app.models import SEVERITIES
 
