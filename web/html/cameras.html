@@ -113,27 +113,21 @@ async function load() {
       '</td></tr>';
   }).join('');
 
-  // Only touch the DOM when something actually changed. Reassigning
-  // innerHTML on every poll destroys and recreates the buttons, and a click
-  // whose mousedown/mouseup straddle that swap never fires at all.
+  // skip the redraw when nothing changed, or a click can straddle it and never fire
   if (html !== rows.innerHTML) rows.innerHTML = html;
 }
 
 async function playHls(id) {
   teardown();
   const url = '/hls/cam' + id + '/index.m3u8';
-  // Cold start: the stream is pulled on demand, so the first request wakes
-  // MediaMTX, which then dials the camera over RTSP (~21s). hls.js gives up
-  // after 10s, so warm the URL with a plain fetch first, which has no such
-  // timeout, before handing it to the player.
   const hint = document.getElementById('playerHint');
   hint.textContent = 'Starting stream... the first play can take ~20s while the camera connection is opened on demand.';
   try {
-    // Make sure the media server still knows this camera. It keeps paths in
-    // memory only, so a restart of MediaMTX wipes them while the database keeps
-    // the cameras. This POST is idempotent and cheap, and makes every watch
-    // self-healing rather than failing with "path not configured".
+    // Re-registers the path with MediaMTX in case it restarted since, since it
+    // only keeps paths in memory. Cheap and idempotent, so just do it every watch.
     await fetch('/video/camera/' + id + '/stream', { method: 'POST' });
+    // hls.js gives up after 10s; MediaMTX dialing the camera cold can take ~21s,
+    // so warm the URL with a plain fetch first, which has no such timeout.
 
     const r = await fetch(url, { credentials: 'same-origin' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -157,9 +151,6 @@ async function playHls(id) {
   hls = new Hls({ lowLatencyMode: true });
   hls.loadSource(url);
   hls.attachMedia(video);
-  // The autoplay attribute alone isn't enough once hls.js attaches the media
-  // source, so play() is called explicitly. Allowed here since the element
-  // is muted; browsers only block autoplay with sound.
   hls.on(Hls.Events.MANIFEST_PARSED, function () {
     video.play().catch(function (e) { say('press play: ' + e.message); });
   });
@@ -246,7 +237,7 @@ document.getElementById('btnStop').onclick = function () {
 };
 
 load();
-setInterval(load, 10000);   // keep the stream-state column fresh
+setInterval(load, 10000);
 </script>
 </body>
 </html>

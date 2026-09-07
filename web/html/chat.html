@@ -95,8 +95,7 @@ const warn = document.getElementById('warn');
 const input = document.getElementById('q');
 const send = document.getElementById('send');
 
-// Sent back to the server on every request: the server keeps no session, so the
-// conversation lives here in the page.
+// server keeps no session, so the conversation lives here and rides along on every request
 let history = [];
 
 const EXAMPLES = [
@@ -124,8 +123,6 @@ function bubble(text, cls, tools) {
   if (tools && tools.length) {
     const note = document.createElement('div');
     note.className = 'tools';
-    // Showing the calls is the point of the page: you can watch the model
-    // choose, and check that the answer came from a real query.
     note.innerHTML = 'called ' + tools.map(function (t) {
       const args = Object.keys(t.arguments || {})
         .map(function (k) { return k + '=' + t.arguments[k]; }).join(', ');
@@ -180,8 +177,6 @@ document.getElementById('askForm').addEventListener('submit', function (e) {
   ask(input.value.trim());
 });
 
-// ---- startup: render examples, list the tools, check the model is pulled ----
-
 document.getElementById('chips').innerHTML = EXAMPLES.map(function (q) {
   return '<button class="chip" type="button">' + esc(q) + '</button>';
 }).join('');
@@ -203,8 +198,6 @@ fetch('/ai/chat/health').then(function (r) { return r.json(); }).then(function (
     warn.textContent = 'The model endpoint is not reachable.\n' + (h.error || '') +
       '\nCheck LLM_BASE_URL and LLM_API_KEY in .setup/.env';
   } else if (!h.modelPulled) {
-    // Two different first-run failures, same symptom: locally the weights were
-    // never pulled; on a hosted provider the model name has been retired.
     warn.textContent = 'The model "' + h.model + '" is not available on this endpoint.' +
       (h.hint ? '\n' + h.hint : '\nPick one of: ' + (h.available || []).join(', '));
   }

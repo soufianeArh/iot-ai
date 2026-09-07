@@ -75,9 +75,8 @@ async function j(url, opts) {
   if (!r.ok && r.status !== 204) throw new Error('HTTP ' + r.status + ' on ' + url);
   if (r.status === 204) return null;
 
-  // When a backend is down, nginx falls through to the SPA handler and returns
-  // index.html. Parsing that as JSON gives a baffling "Unexpected token '<'",
-  // so check the content type and say what is actually wrong.
+  // a down backend falls through to nginx's SPA handler and returns index.html,
+  // so check content type instead of hitting a cryptic JSON parse error
   const type = r.headers.get('content-type') || '';
   if (!type.includes('application/json')) {
     throw new Error('service behind ' + url + ' is not running yet (got HTML, not JSON)');
@@ -85,9 +84,7 @@ async function j(url, opts) {
   return r.json();
 }
 
-// Which weight sets exist, fetched once since this only changes when compose
-// does. A camera only detects the classes of the models it started with, so
-// starting on 'default' alone silently stops any fire rule from firing.
+// fetched once, only changes when compose does
 let MODELS = ['default'];
 j('/ai/models').then(function (m) { if (m && m.length) MODELS = m; }).catch(function () {});
 
@@ -137,8 +134,7 @@ async function loadSummary() {
 async function loadShots() {
   const rows = await j('/ai/detections?limit=60');
 
-  // One row per detected object, but many objects share one frame, so
-  // collapse by snapshot to show each image once with all its labels.
+  // group by snapshot: several objects can share one frame
   const frames = [];
   const seen = {};
   rows.forEach(function (d) {
@@ -179,8 +175,6 @@ document.getElementById('taskRows').addEventListener('click', async function (e)
   if (!id) return;
   try {
     if (e.target.classList.contains('start')) {
-      // Without this the POST defaults to 'default' and any fire rule on the
-      // camera goes quiet with no error anywhere.
       const sel = document.querySelector('select.model[data-id="' + id + '"]');
       const model = sel ? sel.value : '';
       say('starting analysis for camera ' + id + ' on ' + (model || 'default') +
