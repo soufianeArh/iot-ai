@@ -129,7 +129,7 @@ services:
     networks:
       - easyaiot-network
 
-  # Video Service (Python/Flask) - camera registry, Phase 5
+  # Video Service (Python/Flask)
   video-service:
     build:
       context: ../video-service
@@ -446,7 +446,7 @@ services:
       - snapshots:/usr/share/nginx/snapshots:ro
     healthcheck:
       # 127.0.0.1 not localhost: localhost resolves to [::1] in this image and
-      # nginx `listen 80` binds IPv4 only -> the check would always fail.
+      # nginx `listen 80` binds IPv4 only -> the check would always fail
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
