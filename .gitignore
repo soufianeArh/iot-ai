@@ -11,6 +11,11 @@
 # Dependencies: reinstallable from package.json, not something to track.
 node_modules/
 
+# Maven build output. Normally never touches the host at all, since the
+# Dockerfiles build entirely inside a container stage, this only exists if
+# Maven gets run against the source tree directly (e.g. testing a compile).
+target/
+
 # Build output the dev workflow rebuilds locally (`npm run build`), EXCEPT
 # frontend/web/dist, which nginx serves via a read-only bind mount in
 # docker-compose and must stay tracked - that is not a "build artifact" here,
