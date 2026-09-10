@@ -40,8 +40,8 @@ EXPOSE 7000
 
 # ONE worker on purpose: 4threads
 # 120 matches llm_client.py's own LLM_TIMEOUT_SECONDS
-# Gunicorn's master process expects each worker to "check in" periodically to prove it's alive 120s here\
-# If a worker goes silent for longer than
-#  --timeout seconds (because it's still stuck processing one request), the master assumes that worker is dead/stuck, sends it SIGKILL, and
-  spawns a fresh replacement worker process.
+# Gunicorn's master process expects each worker to check in periodically to
+# prove it's alive. If a worker goes silent for longer than --timeout
+# seconds (still stuck processing one request), the master assumes it's
+# dead, sends SIGKILL, and spawns a fresh replacement worker process.
 CMD ["gunicorn", "--bind", "0.0.0.0:7000", "--workers", "1", "--threads", "4", "--timeout", "120", "run:app"]

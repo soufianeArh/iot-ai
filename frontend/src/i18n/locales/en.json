@@ -9,7 +9,8 @@
     "cameras": "Cameras",
     "detections": "Detections",
     "alerts": "Alerts",
-    "ask": "Ask"
+    "ask": "Ask",
+    "users": "Users"
   },
   "common": {
     "loading": "Loading…",
@@ -169,5 +170,43 @@
       "working": "Which cameras are working?",
       "rules": "What alert rules are configured?"
     }
+  },
+  "auth": {
+    "subtitle": "Sign in to continue",
+    "username": "Username",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "signOut": "Sign out",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "profile": {
+    "title": "Profile",
+    "hint": "Update your display name or change your password.",
+    "displayName": "Display name",
+    "role": "Role",
+    "createdAt": "Account created",
+    "changePassword": "Change password",
+    "changePasswordHint": "Leave blank to keep your current password.",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "saved": "Saved.",
+    "passwordMismatch": "New password and confirmation do not match.",
+    "currentPasswordRequired": "Enter your current password to set a new one."
+  },
+  "users": {
+    "title": "Users",
+    "hint": "Create accounts and manage what each person can do.",
+    "addUser": "Add a user",
+    "role": "Role",
+    "roleAdmin": "Admin",
+    "roleOperator": "Operator",
+    "roleViewer": "Viewer",
+    "roleHint": "Admin can do everything, including managing other accounts. Operator can do everything except that. Viewer can only look, not change anything.",
+    "resetPassword": "Reset password",
+    "newPassword": "New password",
+    "confirmDelete": "Delete {name}? This cannot be undone."
   }
 }

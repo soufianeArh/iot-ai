@@ -95,6 +95,9 @@ def create_app() -> Flask:
     from app.blueprints.camera import camera_bp
     app.register_blueprint(camera_bp, url_prefix="/video/camera")
 
+    from app import auth
+    auth.install(app)
+
     @app.get("/video/health")
     def health():
         try:

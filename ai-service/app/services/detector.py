@@ -58,7 +58,7 @@ _lock = threading.Lock()
 
 
 class UnknownModel(Exception):
-    #Raised when someone asks for a model name that isn't configured
+    """Raised when someone asks for a model name that isn't configured."""
 
 
 def _pairs(spec: str) -> dict:

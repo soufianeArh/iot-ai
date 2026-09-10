@@ -9,6 +9,8 @@ import os
 
 import requests
 
+from app.services.auth import service_headers
+
 log = logging.getLogger(__name__)
 
 VIDEO_SERVICE_URL = os.getenv("VIDEO_SERVICE_URL", "http://video-service:6000")
@@ -21,7 +23,8 @@ class CameraLookupError(Exception):
 #camrea metdata (no stream,)
 def get_camera(camera_id: int) -> dict:
     try:
-        response = requests.get(f"{VIDEO_SERVICE_URL}/video/camera/{camera_id}", timeout=TIMEOUT)
+        response = requests.get(f"{VIDEO_SERVICE_URL}/video/camera/{camera_id}",
+                                 headers=service_headers(), timeout=TIMEOUT)
     except requests.RequestException as exc:
         raise CameraLookupError(f"video-service unreachable: {exc}")
 

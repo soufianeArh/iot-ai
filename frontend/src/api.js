@@ -2,10 +2,32 @@
 // nginx serves this app plus the APIs from the same origin in prod, so
 // there's no base URL to configure and no CORS.
 
-async function request(url, options) {
-  const res = await fetch(url, options)
-  const type = res.headers.get('content-type') || ''
+import { getToken, clearSession } from './auth'
 
+function authHeaders(extra) {
+  const token = getToken()
+  return { ...extra, ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+}
+
+// A dead or missing token looks the same everywhere: send back to /login.
+// Hard redirect rather than the router, api.js has no router of its own and
+// a full reload is fine for what should be a rare event.
+function handleUnauthorized() {
+  clearSession()
+  if (location.pathname !== '/login') {
+    location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`
+  }
+}
+
+async function request(url, options = {}) {
+  const res = await fetch(url, { ...options, headers: authHeaders(options.headers) })
+
+  if (res.status === 401) {
+    handleUnauthorized()
+    throw new Error('session expired, please sign in again')
+  }
+
+  const type = res.headers.get('content-type') || ''
   if (!type.includes('application/json')) {
     // Usually nginx's own HTML error page when a backend service is down.
     throw new Error(`${res.status} - service unavailable (expected JSON)`)
@@ -28,11 +50,27 @@ const post = send('POST')
 const put = send('PUT')
 
 async function del(url) {
-  const res = await fetch(url, { method: 'DELETE' })
+  const res = await fetch(url, { method: 'DELETE', headers: authHeaders() })
+  if (res.status === 401) {
+    handleUnauthorized()
+    throw new Error('session expired, please sign in again')
+  }
   if (!res.ok && res.status !== 204) throw new Error(`HTTP ${res.status}`)
 }
 
 export const api = {
+  // auth. login sends no token of its own, there isn't one yet.
+  login: (username, password) => post('/api/auth/login', { username, password }),
+  logout: () => post('/api/auth/logout'),
+  me: () => get('/api/auth/me'),
+  updateProfile: (body) => put('/api/auth/me', body),
+
+  // user management, ADMIN only, enforced server side
+  users: () => get('/api/auth/users'),
+  addUser: (body) => post('/api/auth/users', body),
+  updateUser: (id, body) => put(`/api/auth/users/${id}`, body),
+  deleteUser: (id) => del(`/api/auth/users/${id}`),
+
   // devices
   devices: () => get('/api/devices'),
   addDevice: (body) => post('/api/devices', body),

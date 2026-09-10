@@ -100,6 +100,7 @@ services:
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
       - MQTT_BROKER_URL=tcp://EMQX:1883
+      - JWT_SECRET=${JWT_SECRET}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
       interval: 15s
@@ -172,6 +173,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@PostgresSQL:5432/${POSTGRES_DB}
       - DEVICE_SERVICE_URL=http://device-service:8080
       - MEDIA_SERVER_API=http://mediamtx:9997
+      - JWT_SECRET=${JWT_SECRET}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:6000/video/health >/dev/null || exit 1"]
       interval: 15s
@@ -364,6 +366,7 @@ services:
       - "7000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@PostgresSQL:5432/${POSTGRES_DB}
+      - JWT_SECRET=${JWT_SECRET}
       - VIDEO_SERVICE_URL=http://video-service:6000
       - MEDIA_RTSP_BASE=rtsp://mediamtx:8554
       - SNAPSHOT_DIR=/snapshots

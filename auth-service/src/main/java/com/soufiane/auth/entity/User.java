@@ -74,6 +74,10 @@ public class User {
         return role;
     }
 
+    public void setRole(String role) {
+        this.role = role;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }

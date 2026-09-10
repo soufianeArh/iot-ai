@@ -62,6 +62,9 @@ def create_app() -> Flask:
     from app.blueprints.chat import chat_bp
     app.register_blueprint(chat_bp, url_prefix="/ai")
 
+    from app.services import auth
+    auth.install(app)
+
     @app.get("/ai/health")
     def health():
         try:

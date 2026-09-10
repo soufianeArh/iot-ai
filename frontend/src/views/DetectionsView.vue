@@ -5,6 +5,7 @@ import { api } from '../api'
 import { usePoll, fmtTime } from '../usePoll'
 import { labelText, modelText } from '../i18n/classLabels'
 import ImageLightbox from '../components/ImageLightbox.vue'
+import { canWrite } from '../auth'
 
 const { t, locale } = useI18n()
 
@@ -112,7 +113,8 @@ async function stop(cameraId) {
               </select>
             </td>
             <td>
-              <button v-if="tasks[c.id]?.running" class="ghost" :disabled="busy" @click="stop(c.id)">
+              <button v-if="!canWrite" disabled class="ghost">—</button>
+              <button v-else-if="tasks[c.id]?.running" class="ghost" :disabled="busy" @click="stop(c.id)">
                 {{ t('common.stop') }}
               </button>
               <button v-else :disabled="busy || c.status !== 'REACHABLE'" @click="start(c.id)">

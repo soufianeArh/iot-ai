@@ -3,6 +3,7 @@ import { ref, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '../api'
 import { usePoll } from '../usePoll'
+import { canWrite } from '../auth'
 
 const { t } = useI18n()
 const cameras = ref([])
@@ -203,7 +204,7 @@ onUnmounted(() => stopWatching())
   <p class="page-hint">{{ t('cameras.hint') }}</p>
   <p v-if="error" class="error">{{ error }}</p>
 
-  <div class="card">
+  <div v-if="canWrite" class="card">
     <h2>{{ t('cameras.addCamera') }}</h2>
     <form class="grid" @submit.prevent="addCamera">
       <label class="field">
@@ -261,11 +262,11 @@ onUnmounted(() => stopWatching())
             <td class="hint">{{ c.lastError || '' }}</td>
             <td>
               <div class="row">
-                <button class="ghost" :disabled="busy" @click="probe(c)">{{ t('cameras.probe') }}</button>
+                <button v-if="canWrite" class="ghost" :disabled="busy" @click="probe(c)">{{ t('cameras.probe') }}</button>
                 <button :disabled="busy || c.status !== 'REACHABLE'" @click="watch(c)">
                   {{ t('cameras.watch') }}
                 </button>
-                <button class="danger" @click="remove(c)">{{ t('common.delete') }}</button>
+                <button v-if="canWrite" class="danger" @click="remove(c)">{{ t('common.delete') }}</button>
               </div>
             </td>
           </tr>

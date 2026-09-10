@@ -10,6 +10,7 @@ import requests
 
 from app import db
 from app.models import Alert, AlertRule
+from app.services.auth import service_headers
 from app.services.rule_engine import _cooldown_expired, _remember_fired
 
 log = logging.getLogger(__name__)
@@ -21,15 +22,17 @@ TIMEOUT = 8
 ENABLED = os.getenv("DEVICE_RULES_ENABLED", "true").lower() in ("1", "true", "yes")
 
 
+# device-service doesn't verify this yet, sent now so nothing here needs
+# revisiting once it does.
 def _devices() -> list:
-    r = requests.get(f"{DEVICE_SERVICE_URL}/api/devices", timeout=TIMEOUT)
+    r = requests.get(f"{DEVICE_SERVICE_URL}/api/devices", headers=service_headers(), timeout=TIMEOUT)
     r.raise_for_status()
     return r.json()
 
 
 def _properties(device_id: int) -> list:
     r = requests.get(f"{DEVICE_SERVICE_URL}/api/devices/{device_id}/properties",
-                     timeout=TIMEOUT)
+                     headers=service_headers(), timeout=TIMEOUT)
     r.raise_for_status()
     return r.json()
 

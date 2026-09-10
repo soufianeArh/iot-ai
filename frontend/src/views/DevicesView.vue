@@ -5,6 +5,7 @@ import { api } from '../api'
 import { usePoll, fmtTime } from '../usePoll'
 import { severityText as severityTextRaw } from '../i18n/severity'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
+import { canWrite } from '../auth'
 
 const { t, locale } = useI18n()
 const severityText = (sev) => severityTextRaw(sev, t)
@@ -226,7 +227,7 @@ function latest(device, key) {
   </div>
 
   <!-- ---- add / manage ---- -->
-  <div class="card">
+  <div v-if="canWrite" class="card">
     <h2>{{ t('devices.addDevice') }}</h2>
     <form class="grid" @submit.prevent="addDevice">
       <label class="field">
@@ -328,7 +329,7 @@ function latest(device, key) {
               </div>
             </td>
             <!-- .stop, or deleting a row would also select it on the way out. -->
-            <td><button class="danger" @click.stop="remove(d)">{{ t('common.delete') }}</button></td>
+            <td><button v-if="canWrite" class="danger" @click.stop="remove(d)">{{ t('common.delete') }}</button></td>
           </tr>
           <tr v-if="!devices.length && !loading">
             <td colspan="5" class="hint">{{ t('common.none') }}</td>

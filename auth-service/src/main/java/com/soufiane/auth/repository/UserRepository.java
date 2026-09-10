@@ -7,4 +7,7 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
+
+    // used by the last-admin guard before a delete or a role downgrade
+    long countByRole(String role);
 }

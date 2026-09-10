@@ -175,6 +175,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .hint code { background: #eceff3; padding: 0 .25rem; border-radius: 3px; direction: ltr; display: inline-block; }
 
 .error { color: var(--crit); font-size: .85rem; }
+.success { color: var(--ok); font-size: .85rem; }
 
 .stat { font-size: 1.6rem; font-weight: 700; }
 .stat-label { color: var(--text-dim); font-size: .8rem; }

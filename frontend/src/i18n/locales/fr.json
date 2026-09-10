@@ -9,7 +9,8 @@
     "cameras": "Caméras",
     "detections": "Détections",
     "alerts": "Alertes",
-    "ask": "Assistant"
+    "ask": "Assistant",
+    "users": "Utilisateurs"
   },
   "common": {
     "loading": "Chargement…",
@@ -169,5 +170,43 @@
       "working": "Quelles caméras fonctionnent ?",
       "rules": "Quelles règles d'alerte sont configurées ?"
     }
+  },
+  "auth": {
+    "subtitle": "Connectez-vous pour continuer",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "signIn": "Se connecter",
+    "signingIn": "Connexion…",
+    "signOut": "Se déconnecter",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
+  },
+  "profile": {
+    "title": "Profil",
+    "hint": "Modifiez votre nom affiché ou changez votre mot de passe.",
+    "displayName": "Nom affiché",
+    "role": "Rôle",
+    "createdAt": "Compte créé le",
+    "changePassword": "Changer le mot de passe",
+    "changePasswordHint": "Laissez vide pour conserver votre mot de passe actuel.",
+    "currentPassword": "Mot de passe actuel",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer le nouveau mot de passe",
+    "saved": "Enregistré.",
+    "passwordMismatch": "Le nouveau mot de passe et sa confirmation ne correspondent pas.",
+    "currentPasswordRequired": "Saisissez votre mot de passe actuel pour en définir un nouveau."
+  },
+  "users": {
+    "title": "Utilisateurs",
+    "hint": "Créez des comptes et gérez ce que chaque personne peut faire.",
+    "addUser": "Ajouter un utilisateur",
+    "role": "Rôle",
+    "roleAdmin": "Administrateur",
+    "roleOperator": "Opérateur",
+    "roleViewer": "Lecteur",
+    "roleHint": "Administrateur peut tout faire, y compris gérer les autres comptes. Opérateur peut tout faire sauf cela. Lecteur peut seulement consulter, sans rien modifier.",
+    "resetPassword": "Réinitialiser le mot de passe",
+    "newPassword": "Nouveau mot de passe",
+    "confirmDelete": "Supprimer {name} ? Cette action est irréversible."
   }
 }

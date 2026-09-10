@@ -1,0 +1,48 @@
+package com.soufiane.device.security;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+// Introduced in step 2, this service had no auth at all before: nginx just
+// proxied straight through. Same rule as video-service and ai-service's
+// Python middleware: any authenticated role can read, a write needs ADMIN
+// or OPERATOR, SERVICE (ai-service's own calls here) is trusted regardless
+// of method since it isn't a human role.
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    private final JwtAuthFilter jwtAuthFilter;
+    private final RestAuthEntryPoint restAuthEntryPoint;
+    private final RestAccessDeniedHandler restAccessDeniedHandler;
+
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, RestAuthEntryPoint restAuthEntryPoint,
+                           RestAccessDeniedHandler restAccessDeniedHandler) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.restAuthEntryPoint = restAuthEntryPoint;
+        this.restAccessDeniedHandler = restAccessDeniedHandler;
+    }
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        // Docker's healthcheck has no token, same as every other service here.
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/**").authenticated()
+                        .anyRequest().hasAnyRole("ADMIN", "OPERATOR", "SERVICE"))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(restAuthEntryPoint)
+                        .accessDeniedHandler(restAccessDeniedHandler))
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+}

@@ -6,6 +6,7 @@ import { usePoll, fmtTime } from '../usePoll'
 import { labelText, modelText } from '../i18n/classLabels'
 import { severityText as severityTextRaw } from '../i18n/severity'
 import ImageLightbox from '../components/ImageLightbox.vue'
+import { canWrite } from '../auth'
 
 const { t, locale } = useI18n()
 
@@ -160,7 +161,7 @@ const severityText = (sev) => severityTextRaw(sev, t)
     </div>
   </div>
 
-  <div class="card">
+  <div v-if="canWrite" class="card">
     <h2>{{ t('alerts.addRule') }}</h2>
     <form class="grid" @submit.prevent="addRule">
       <label class="field">
@@ -313,7 +314,7 @@ const severityText = (sev) => severityTextRaw(sev, t)
             <td>{{ r.cooldownSeconds }}s</td>
             <td><span class="pill" :class="r.severity">{{ severityText(r.severity) }}</span></td>
             <td>
-              <div class="row">
+              <div v-if="canWrite" class="row">
                 <button class="ghost" @click="toggle(r)">
                   {{ r.enabled ? t('common.disable') : t('common.enable') }}
                 </button>
@@ -368,7 +369,7 @@ const severityText = (sev) => severityTextRaw(sev, t)
             <td>{{ fmtTime(a.raisedAt, locale) }}</td>
             <td>
               <span v-if="a.acknowledged" class="pill ok">{{ t('alerts.acknowledged') }}</span>
-              <button v-else class="ghost" @click="ack(a)">{{ t('alerts.acknowledge') }}</button>
+              <button v-else-if="canWrite" class="ghost" @click="ack(a)">{{ t('alerts.acknowledge') }}</button>
             </td>
           </tr>
           <tr v-if="!alerts.length && !loading">
