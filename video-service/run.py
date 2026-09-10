@@ -98,6 +98,9 @@ def create_app() -> Flask:
     from app import auth
     auth.install(app)
 
+    from app import audit
+    audit.install(app, "video-service")
+
     @app.get("/video/health")
     def health():
         try:

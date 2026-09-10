@@ -27,6 +27,12 @@ spring:
 jwt:
   secret: dev-only-secret-change-me-before-anything-real-CHANGE-ME
 
+# Step 5: where to ship audit rows. Overridden by AUTH_SERVICE_URL in the
+# compose file; blank here so a bare local run without the full stack just
+# skips reporting rather than erroring on every write.
+audit:
+  auth-service-url: ${AUTH_SERVICE_URL:}
+
 # p4 MqttProps bean in SB declaration takes constructor data from here
 mqtt:
   broker-url: tcp://localhost:1883

@@ -65,6 +65,9 @@ def create_app() -> Flask:
     from app.services import auth
     auth.install(app)
 
+    from app.services import audit
+    audit.install(app, "ai-service")
+
     @app.get("/ai/health")
     def health():
         try:

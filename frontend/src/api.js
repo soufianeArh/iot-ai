@@ -71,6 +71,9 @@ export const api = {
   updateUser: (id, body) => put(`/api/auth/users/${id}`, body),
   deleteUser: (id) => del(`/api/auth/users/${id}`),
 
+  // audit log, ADMIN only. Every service ships its mutations here.
+  audit: (params) => get(`/api/auth/audit?${new URLSearchParams(params)}`),
+
   // devices
   devices: () => get('/api/devices'),
   addDevice: (body) => post('/api/devices', body),

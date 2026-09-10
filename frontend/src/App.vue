@@ -67,6 +67,7 @@ async function onLogout() {
         <RouterLink to="/alerts">{{ t('nav.alerts') }}</RouterLink>
         <RouterLink to="/ask">{{ t('nav.ask') }}</RouterLink>
         <RouterLink v-if="isAdmin" to="/users">{{ t('nav.users') }}</RouterLink>
+        <RouterLink v-if="isAdmin" to="/logs">{{ t('nav.logs') }}</RouterLink>
       </nav>
 
       <div class="sidebar-spacer"></div>

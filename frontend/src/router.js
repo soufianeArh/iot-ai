@@ -8,6 +8,7 @@ const routes = [
   { path: '/login', component: () => import('./views/LoginView.vue'), meta: { public: true } },
   { path: '/profile', component: () => import('./views/ProfileView.vue') },
   { path: '/users', component: () => import('./views/UsersView.vue'), meta: { adminOnly: true } },
+  { path: '/logs', component: () => import('./views/LogsView.vue'), meta: { adminOnly: true } },
   { path: '/dashboard', component: () => import('./views/DashboardView.vue') },
   { path: '/devices', component: () => import('./views/DevicesView.vue') },
   { path: '/zones', component: () => import('./views/ZonesView.vue'), meta: { adminOnly: true } },

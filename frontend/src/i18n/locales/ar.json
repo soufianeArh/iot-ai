@@ -14,7 +14,8 @@
     "detections": "الاكتشافات",
     "alerts": "التنبيهات",
     "ask": "المساعد",
-    "users": "المستخدمون"
+    "users": "المستخدمون",
+    "logs": "سجل النشاط"
   },
   "common": {
     "loading": "جارٍ التحميل…",
@@ -222,6 +223,46 @@
     "resetPassword": "إعادة تعيين كلمة المرور",
     "newPassword": "كلمة المرور الجديدة",
     "confirmDelete": "حذف {name}؟ لا يمكن التراجع عن هذا."
+  },
+  "logs": {
+    "title": "سجل النشاط",
+    "hint": "كل تغيير يجري في المنصة: من قام به وماذا فعل. لا تُسجَّل عمليات القراءة. انقر على صف لعرض التفاصيل.",
+    "filterActor": "المستخدم",
+    "filterAction": "الإجراء",
+    "filterResource": "النوع",
+    "allActions": "أي إجراء",
+    "allResources": "أي نوع",
+    "apply": "تطبيق",
+    "colWhen": "متى",
+    "colWho": "من",
+    "colWhat": "ماذا",
+    "colResult": "النتيجة",
+    "noActor": "غير معروف",
+    "action": {
+      "CREATE": "أنشأ",
+      "UPDATE": "حدّث",
+      "DELETE": "حذف",
+      "ACK": "أقرّ",
+      "LOGIN": "سجّل الدخول",
+      "LOGOUT": "سجّل الخروج"
+    },
+    "resource": {
+      "device": "جهاز",
+      "zone": "منطقة",
+      "user": "مستخدم",
+      "rule": "قاعدة تنبيه",
+      "alert": "تنبيه",
+      "camera": "كاميرا",
+      "task": "مهمة كشف",
+      "session": "جلسة",
+      "profile": "ملف شخصي"
+    },
+    "outcome": {
+      "SUCCESS": "نجح",
+      "DENIED": "ممنوع",
+      "REJECTED": "مرفوض",
+      "ERROR": "خطأ"
+    }
   },
   "zones": {
     "title": "المناطق",

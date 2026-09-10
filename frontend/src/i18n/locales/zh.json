@@ -14,7 +14,8 @@
     "detections": "检测",
     "alerts": "告警",
     "ask": "问答",
-    "users": "用户"
+    "users": "用户",
+    "logs": "操作日志"
   },
   "common": {
     "loading": "加载中…",
@@ -222,6 +223,46 @@
     "resetPassword": "重置密码",
     "newPassword": "新密码",
     "confirmDelete": "删除 {name}？此操作无法撤销。"
+  },
+  "logs": {
+    "title": "操作日志",
+    "hint": "平台中所做的每一次更改：谁做的、做了什么。读取操作不会记录。点击某行查看详情。",
+    "filterActor": "用户",
+    "filterAction": "操作",
+    "filterResource": "类型",
+    "allActions": "任意操作",
+    "allResources": "任意类型",
+    "apply": "应用",
+    "colWhen": "时间",
+    "colWho": "操作人",
+    "colWhat": "内容",
+    "colResult": "结果",
+    "noActor": "未知",
+    "action": {
+      "CREATE": "创建了",
+      "UPDATE": "更新了",
+      "DELETE": "删除了",
+      "ACK": "确认了",
+      "LOGIN": "登录",
+      "LOGOUT": "退出登录"
+    },
+    "resource": {
+      "device": "设备",
+      "zone": "区域",
+      "user": "用户",
+      "rule": "告警规则",
+      "alert": "告警",
+      "camera": "摄像头",
+      "task": "检测任务",
+      "session": "会话",
+      "profile": "个人资料"
+    },
+    "outcome": {
+      "SUCCESS": "成功",
+      "DENIED": "无权限",
+      "REJECTED": "被拒绝",
+      "ERROR": "错误"
+    }
   },
   "zones": {
     "title": "区域",

@@ -1,5 +1,7 @@
 package com.soufiane.device.security;
 
+import com.soufiane.device.audit.AuditFilter;
+import com.soufiane.device.audit.AuditReporter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,12 +23,14 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final RestAuthEntryPoint restAuthEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
+    private final AuditReporter auditReporter;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter, RestAuthEntryPoint restAuthEntryPoint,
-                           RestAccessDeniedHandler restAccessDeniedHandler) {
+                           RestAccessDeniedHandler restAccessDeniedHandler, AuditReporter auditReporter) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.restAuthEntryPoint = restAuthEntryPoint;
         this.restAccessDeniedHandler = restAccessDeniedHandler;
+        this.auditReporter = auditReporter;
     }
 
     @Bean
@@ -47,7 +51,8 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(restAuthEntryPoint)
                         .accessDeniedHandler(restAccessDeniedHandler))
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new AuditFilter(auditReporter), JwtAuthFilter.class);
         return http.build();
     }
 }

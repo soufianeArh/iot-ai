@@ -14,7 +14,8 @@
     "detections": "Détections",
     "alerts": "Alertes",
     "ask": "Assistant",
-    "users": "Utilisateurs"
+    "users": "Utilisateurs",
+    "logs": "Journal d'activité"
   },
   "common": {
     "loading": "Chargement…",
@@ -222,6 +223,46 @@
     "resetPassword": "Réinitialiser le mot de passe",
     "newPassword": "Nouveau mot de passe",
     "confirmDelete": "Supprimer {name} ? Cette action est irréversible."
+  },
+  "logs": {
+    "title": "Journal d'activité",
+    "hint": "Chaque modification faite dans la plateforme : qui l'a faite et quoi. Les lectures ne sont pas enregistrées. Cliquez sur une ligne pour le détail.",
+    "filterActor": "Utilisateur",
+    "filterAction": "Action",
+    "filterResource": "Type",
+    "allActions": "Toute action",
+    "allResources": "Tout type",
+    "apply": "Appliquer",
+    "colWhen": "Quand",
+    "colWho": "Qui",
+    "colWhat": "Quoi",
+    "colResult": "Résultat",
+    "noActor": "inconnu",
+    "action": {
+      "CREATE": "a créé",
+      "UPDATE": "a modifié",
+      "DELETE": "a supprimé",
+      "ACK": "a acquitté",
+      "LOGIN": "connexion",
+      "LOGOUT": "déconnexion"
+    },
+    "resource": {
+      "device": "appareil",
+      "zone": "zone",
+      "user": "utilisateur",
+      "rule": "règle d'alerte",
+      "alert": "alerte",
+      "camera": "caméra",
+      "task": "tâche de détection",
+      "session": "session",
+      "profile": "profil"
+    },
+    "outcome": {
+      "SUCCESS": "ok",
+      "DENIED": "refusé",
+      "REJECTED": "rejeté",
+      "ERROR": "erreur"
+    }
   },
   "zones": {
     "title": "Zones",

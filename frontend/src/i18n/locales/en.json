@@ -14,7 +14,8 @@
     "detections": "Detections",
     "alerts": "Alerts",
     "ask": "Ask",
-    "users": "Users"
+    "users": "Users",
+    "logs": "Activity log"
   },
   "common": {
     "loading": "Loading…",
@@ -222,6 +223,46 @@
     "resetPassword": "Reset password",
     "newPassword": "New password",
     "confirmDelete": "Delete {name}? This cannot be undone."
+  },
+  "logs": {
+    "title": "Activity log",
+    "hint": "Every change made anywhere in the platform: who did it and what. Reads are not recorded. Click a row for the details.",
+    "filterActor": "User",
+    "filterAction": "Action",
+    "filterResource": "Type",
+    "allActions": "Any action",
+    "allResources": "Any type",
+    "apply": "Apply",
+    "colWhen": "When",
+    "colWho": "Who",
+    "colWhat": "What",
+    "colResult": "Result",
+    "noActor": "unknown",
+    "action": {
+      "CREATE": "created",
+      "UPDATE": "updated",
+      "DELETE": "deleted",
+      "ACK": "acknowledged",
+      "LOGIN": "signed in",
+      "LOGOUT": "signed out"
+    },
+    "resource": {
+      "device": "device",
+      "zone": "zone",
+      "user": "user",
+      "rule": "alert rule",
+      "alert": "alert",
+      "camera": "camera",
+      "task": "detection task",
+      "session": "session",
+      "profile": "profile"
+    },
+    "outcome": {
+      "SUCCESS": "ok",
+      "DENIED": "denied",
+      "REJECTED": "rejected",
+      "ERROR": "error"
+    }
   },
   "zones": {
     "title": "Zones",
