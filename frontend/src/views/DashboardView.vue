@@ -30,8 +30,13 @@ function goDevice(deviceId) {
 function goDeviceAlerts(deviceCode) {
   router.push({ path: '/alerts', query: { device: deviceCode } })
 }
+function goZone(zoneId) {
+  // null is the "no zone" row, DevicesView reads ?zone=none for it.
+  router.push({ path: '/devices', query: { zone: zoneId == null ? 'none' : String(zoneId) } })
+}
 
 const devices = ref([])
+const zones = ref([])
 const deviceReadings = ref({}) // device id -> its most recently reported property, or null
 const cameras = ref([])
 const cameraShots = ref({})    // camera id -> its most recent detection ever, or null
@@ -42,7 +47,7 @@ const recentAlerts = ref([])
 const openCounts = ref({ byCamera: {}, byDevice: {} })
 
 const { error, loading, refresh } = usePoll(async () => {
-  const [d, c, tk, m, s, a, counts, dets] = await Promise.all([
+  const [d, c, tk, m, s, a, counts, dets, z] = await Promise.all([
     api.devices(),
     api.cameras(),
     api.tasks(),
@@ -55,6 +60,7 @@ const { error, loading, refresh } = usePoll(async () => {
     // Wide enough to likely cover one recent frame per camera, this is a
     // summary, not the full history the Detections page already shows.
     api.detections({ limit: 100 }),
+    api.zones().catch(() => []),
   ])
   devices.value = d
   cameras.value = c
@@ -63,6 +69,7 @@ const { error, loading, refresh } = usePoll(async () => {
   alertSummary.value = s
   recentAlerts.value = a
   openCounts.value = counts
+  zones.value = z
 
   // Keyed by camera, not by "is a task running right now": a camera keeps
   // showing its last known picture even between analysis runs, rather than
@@ -92,6 +99,45 @@ const tasksRunning = computed(() => tasks.value.filter((tk) => tk.running).lengt
 
 const alertsByCamera = computed(() => openCounts.value.byCamera || {})
 const alertsByDevice = computed(() => openCounts.value.byDevice || {})
+
+// deviceCode -> zone name, so an alert row can show which plot the sensor is on.
+const zoneByDeviceCode = computed(() => {
+  const m = {}
+  for (const d of devices.value) if (d.deviceCode) m[d.deviceCode] = d.zoneName
+  return m
+})
+
+// One row per zone (plus a "no zone" row when some device is unassigned):
+// how many of its devices are online, and the worst open alert across them.
+const SEV_RANK = { INFO: 1, WARNING: 2, CRITICAL: 3 }
+const zoneRollup = computed(() => {
+  const byDevice = openCounts.value.byDevice || {}
+
+  const summarize = (id, name, ds) => {
+    let alertCount = 0
+    let worst = null
+    for (const d of ds) {
+      const open = byDevice[d.deviceCode]
+      if (!open) continue
+      alertCount += open.count
+      if (!worst || SEV_RANK[open.worstSeverity] > SEV_RANK[worst]) worst = open.worstSeverity
+    }
+    return {
+      id,
+      name,
+      total: ds.length,
+      online: ds.filter((d) => d.status === 'ONLINE').length,
+      alertCount,
+      worstSeverity: worst,
+    }
+  }
+
+  const rows = zones.value.map((z) =>
+    summarize(z.id, z.name, devices.value.filter((d) => d.zoneId === z.id)))
+  const orphans = devices.value.filter((d) => !d.zoneId)
+  if (orphans.length) rows.push(summarize(null, t('devices.noZone'), orphans))
+  return rows
+})
 
 // The camera or alert snapshot open full-screen, same treatment as the
 // Cameras and Alerts pages.
@@ -124,6 +170,24 @@ function openShot(src, caption) {
       <div class="stat-tile">
         <div class="stat">{{ models.length }}</div>
         <div class="stat-label">{{ t('dashboard.modelsAvailable') }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div v-if="zoneRollup.length" class="card">
+    <h2>{{ t('dashboard.zones') }}</h2>
+    <div class="grid">
+      <div v-for="z in zoneRollup" :key="z.id ?? 'none'"
+           class="zone-card" :class="{ pick: z.id != null }"
+           @click="z.id != null && goZone(z.id)">
+        <div class="dev-head">
+          <strong>{{ z.name }}</strong>
+          <span class="pill idle">{{ z.online }} / {{ z.total }}</span>
+        </div>
+        <div class="stat-label">{{ t('dashboard.devicesOnline') }}</div>
+        <span v-if="z.alertCount" class="pill dev-alert" :class="z.worstSeverity">
+          {{ t('dashboard.alertsOpen', { count: $n(z.alertCount, 'plain') }) }}
+        </span>
       </div>
     </div>
   </div>
@@ -226,7 +290,11 @@ function openShot(src, caption) {
             <td><span class="pill" :class="a.severity">{{ severityText(a.severity) }}</span></td>
             <td>{{ a.ruleName }}</td>
             <td>
-              <span v-if="a.deviceCode"><code class="mono">{{ a.deviceCode }}</code></span>
+              <template v-if="a.deviceCode">
+                <code class="mono">{{ a.deviceCode }}</code>
+                <span v-if="zoneByDeviceCode[a.deviceCode]" class="pill idle"
+                      style="margin-inline-start:.35rem">{{ zoneByDeviceCode[a.deviceCode] }}</span>
+              </template>
               <span v-else>{{ a.cameraId }}</span>
             </td>
             <td>{{ labelText(a.label, locale) }}</td>
@@ -295,7 +363,7 @@ button.pill:hover { filter: brightness(0.95); }
 .cam-actions { margin-top: auto; }
 .cam-actions button { flex: 1; }
 
-.device-card {
+.device-card, .zone-card {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -303,9 +371,10 @@ button.pill:hover { filter: brightness(0.95); }
   display: flex;
   flex-direction: column;
   gap: .35rem;
-  cursor: pointer;
 }
-.device-card:hover { border-color: var(--brand-500); }
+.device-card { cursor: pointer; }
+.zone-card.pick { cursor: pointer; }
+.device-card:hover, .zone-card.pick:hover { border-color: var(--brand-500); }
 .dev-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 /* the alert badge sits on its own line, not stretched across the card */
 .dev-alert { align-self: flex-start; }

@@ -226,6 +226,7 @@
   "zones": {
     "title": "Zones",
     "hint": "A zone is a part of the farm: a plot, a field, a greenhouse. A device belongs to one zone or none. Only an admin can create, rename or delete a zone.",
+    "openHint": "Click a zone to see its devices.",
     "addZone": "Add a zone",
     "namePlaceholder": "North field",
     "description": "Description",
@@ -240,6 +241,7 @@
     "tasksRunning": "Detection tasks running",
     "modelsAvailable": "Detection models available",
     "platform": "Platform",
+    "zones": "Zones",
     "alertsOverview": "Alerts",
     "cameras": "Cameras",
     "noSnapshot": "No snapshot yet",

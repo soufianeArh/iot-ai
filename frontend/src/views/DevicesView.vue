@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { api } from '../api'
@@ -24,9 +24,38 @@ const form = ref({ name: '', deviceCode: '', productKey: '', description: '', lo
 const busy = ref(false)
 const formError = ref('')
 
-// null shows every device, a zone id filters the table to that zone, the
-// empty string filters to devices with no zone at all.
-const zoneFilter = ref('all')
+// 'all' shows every device, a zone id (as a string) filters to that zone,
+// '' filters to devices with no zone at all. Seeded from ?zone= so a
+// dashboard zone card lands here already filtered (?zone=none for unassigned).
+function zoneFilterFromRoute() {
+  const q = route.query.zone
+  if (q === 'none') return ''
+  if (q) return String(q)
+  return 'all'
+}
+const zoneFilter = ref(zoneFilterFromRoute())
+
+// Arriving from a dashboard zone card, jump straight to the (already
+// filtered) device list rather than the top of the page. The poll fills in
+// the selected-sensor card and the history chart above the list a beat
+// later, which pushes the list down, so re-issue the scroll a few times
+// until the layout has settled rather than once at a fixed delay.
+function scrollToList() {
+  let tries = 0
+  let lastTop = null
+  const tick = () => {
+    const el = document.getElementById('device-list')
+    if (el) {
+      const top = el.getBoundingClientRect().top
+      // Stop once the list's position has stopped moving (layout settled).
+      if (lastTop !== null && Math.abs(top - lastTop) < 2 && Math.abs(top) < 4) return
+      lastTop = top
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    if (++tries < 12) setTimeout(tick, 200)
+  }
+  nextTick(tick)
+}
 
 // Inline edit of the selected device, canWrite only. null means not editing.
 const editForm = ref(null)
@@ -138,6 +167,7 @@ async function loadHistory() {
 }
 
 onMounted(async () => {
+  if (route.query.zone) scrollToList()
   try { rules.value = await api.rules() } catch { rules.value = [] }
 })
 
@@ -149,6 +179,13 @@ watch(() => route.query.highlight, (raw) => {
     selectedId.value = id
     loadHistory()
   }
+})
+
+// A second dashboard zone card while already on the page re-points the filter
+// and scrolls down again.
+watch(() => route.query.zone, (q) => {
+  zoneFilter.value = zoneFilterFromRoute()
+  if (q) scrollToList()
 })
 
 // Topic format is iot/{productKey}/{deviceCode}/properties (see
@@ -437,7 +474,7 @@ function latest(device, key) {
     </div>
   </div>
 
-  <div class="card">
+  <div id="device-list" class="card">
     <div class="row" style="margin-bottom:.6rem">
       <label class="field" style="width:auto">
         <span>{{ t('devices.zone') }}</span>

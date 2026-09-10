@@ -181,6 +181,27 @@ async function ack(alert) {
 }
 
 const severityText = (sev) => severityTextRaw(sev, t)
+
+// deviceCode -> zone name, from the device list the poll already fetches, so
+// a device alert row can show which plot the sensor sits on. No backend
+// change: ai-service doesn't know about zones, device-service owns them.
+const zoneByDeviceCode = computed(() => {
+  const m = {}
+  for (const d of devices.value) if (d.deviceCode) m[d.deviceCode] = d.zoneName
+  return m
+})
+
+// The device filter dropdown, grouped by zone: picking a sensor is also how
+// you surface that sensor's alerts with its zone shown on each row.
+const devicesByZone = computed(() => {
+  const groups = new Map()
+  for (const d of devices.value) {
+    const key = d.zoneName || t('devices.noZone')
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(d)
+  }
+  return [...groups].map(([zone, list]) => ({ zone, list }))
+})
 </script>
 
 <template>
@@ -393,7 +414,9 @@ const severityText = (sev) => severityTextRaw(sev, t)
         <span class="hint">{{ t('alerts.device') }}</span>
         <select :value="deviceFilter || ''" @change="onDeviceFilter" style="width:auto">
           <option value="">{{ t('alerts.anyDevice') }}</option>
-          <option v-for="d in devices" :key="d.id" :value="d.deviceCode">{{ d.name }} ({{ d.deviceCode }})</option>
+          <optgroup v-for="g in devicesByZone" :key="g.zone" :label="g.zone">
+            <option v-for="d in g.list" :key="d.id" :value="d.deviceCode">{{ d.name }} ({{ d.deviceCode }})</option>
+          </optgroup>
         </select>
       </label>
     </div>
@@ -420,7 +443,11 @@ const severityText = (sev) => severityTextRaw(sev, t)
             </td>
             <td>{{ a.ruleName }}</td>
             <td>
-              <span v-if="a.deviceCode"><code class="mono">{{ a.deviceCode }}</code></span>
+              <template v-if="a.deviceCode">
+                <code class="mono">{{ a.deviceCode }}</code>
+                <span v-if="zoneByDeviceCode[a.deviceCode]" class="pill idle"
+                      style="margin-inline-start:.35rem">{{ zoneByDeviceCode[a.deviceCode] }}</span>
+              </template>
               <span v-else>{{ a.cameraId }}</span>
             </td>
             <td>{{ labelText(a.label, locale) }}</td>

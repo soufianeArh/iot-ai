@@ -1,10 +1,18 @@
 <script setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { usePoll, fmtTime } from '../usePoll'
 
 const { t, locale } = useI18n()
+const router = useRouter()
+
+// Clicking a zone row jumps to the device list filtered to that zone, same
+// route the dashboard zone cards use (it scrolls down to the list there).
+function goZoneDevices(zone) {
+  router.push({ path: '/devices', query: { zone: String(zone.id) } })
+}
 
 const zones = ref([])
 const busy = ref(false)
@@ -70,7 +78,7 @@ async function removeZone(zone) {
 
 <template>
   <h1>{{ t('zones.title') }}</h1>
-  <p class="page-hint">{{ t('zones.hint') }}</p>
+  <p class="page-hint">{{ t('zones.hint') }} {{ t('zones.openHint') }}</p>
   <p v-if="error" class="error">{{ error }}</p>
 
   <div class="card">
@@ -105,7 +113,9 @@ async function removeZone(zone) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="z in zones" :key="z.id">
+          <tr v-for="z in zones" :key="z.id"
+              :class="{ pick: !edits[z.id] }"
+              @click="!edits[z.id] && goZoneDevices(z)">
             <template v-if="edits[z.id]">
               <td><input v-model="edits[z.id].name" maxlength="128"></td>
               <td><input v-model="edits[z.id].description" maxlength="500"></td>
@@ -125,8 +135,8 @@ async function removeZone(zone) {
               <td>{{ fmtTime(z.createdAt, locale) }}</td>
               <td>
                 <div class="row">
-                  <button class="ghost" type="button" @click="startEdit(z)">{{ t('common.edit') }}</button>
-                  <button class="danger" type="button" @click="removeZone(z)">{{ t('common.delete') }}</button>
+                  <button class="ghost" type="button" @click.stop="startEdit(z)">{{ t('common.edit') }}</button>
+                  <button class="danger" type="button" @click.stop="removeZone(z)">{{ t('common.delete') }}</button>
                 </div>
               </td>
             </template>
@@ -139,3 +149,8 @@ async function removeZone(zone) {
     </div>
   </div>
 </template>
+
+<style scoped>
+.pick { cursor: pointer; }
+.pick:hover { background: var(--brand-100); }
+</style>

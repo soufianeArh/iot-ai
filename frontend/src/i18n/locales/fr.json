@@ -226,6 +226,7 @@
   "zones": {
     "title": "Zones",
     "hint": "Une zone est une partie de l'exploitation : une parcelle, un champ, une serre. Un appareil appartient à une zone ou à aucune. Seul un administrateur peut créer, renommer ou supprimer une zone.",
+    "openHint": "Cliquez sur une zone pour voir ses appareils.",
     "addZone": "Ajouter une zone",
     "namePlaceholder": "Champ nord",
     "description": "Description",
@@ -240,6 +241,7 @@
     "tasksRunning": "Tâches de détection en cours",
     "modelsAvailable": "Modèles de détection disponibles",
     "platform": "Plateforme",
+    "zones": "Zones",
     "alertsOverview": "Alertes",
     "cameras": "Caméras",
     "noSnapshot": "Pas encore d'image",
