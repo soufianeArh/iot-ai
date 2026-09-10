@@ -148,7 +148,10 @@
     "above": "高于",
     "below": "低于",
     "threshold": "阈值",
-    "deviceHint": "每隔几秒检查一次最新读数。属性必须与设备发布的键完全一致，例如 temperature 或 soilMoisture。"
+    "deviceHint": "每隔几秒检查一次最新读数。属性必须与设备发布的键完全一致，例如 temperature 或 soilMoisture。",
+    "filteredByCamera": "仅显示摄像头 {camera} 的告警",
+    "filteredByDevice": "仅显示设备 {device} 的告警",
+    "clearFilter": "清除筛选"
   },
   "ask": {
     "title": "问答",

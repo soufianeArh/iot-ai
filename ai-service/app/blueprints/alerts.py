@@ -97,6 +97,10 @@ def list_alerts():
     if camera_id is not None:
         query = query.filter_by(camera_id=camera_id)
 
+    device_code = request.args.get("deviceCode")
+    if device_code:
+        query = query.filter_by(device_code=device_code)
+
     severity = request.args.get("severity")
     if severity:
         query = query.filter_by(severity=severity.upper())
@@ -122,6 +126,30 @@ def acknowledge(alert_id):
         alert.acknowledged_at = utcnow()
         db.session.commit()
     return jsonify(alert.to_dict())
+
+
+_SEV_RANK = {"INFO": 1, "WARNING": 2, "CRITICAL": 3}
+
+
+@alerts_bp.route("/alerts/open-counts", methods=["GET"])
+def open_counts():
+    """Unacknowledged alert count and worst severity, grouped by camera and
+    by device. The dashboard's per-row badges need a real total, not a
+    capped page of /alerts, and a worst severity computed over all of them.
+    """
+    def _group(id_col):
+        rows = (db.session.query(id_col, Alert.severity, db.func.count(Alert.id))
+                .filter(Alert.acknowledged.is_(False), id_col.isnot(None))
+                .group_by(id_col, Alert.severity).all())
+        out = {}
+        for key, severity, n in rows:
+            entry = out.setdefault(str(key), {"count": 0, "worstSeverity": "INFO"})
+            entry["count"] += n
+            if _SEV_RANK.get(severity, 0) > _SEV_RANK.get(entry["worstSeverity"], 0):
+                entry["worstSeverity"] = severity
+        return out
+
+    return jsonify({"byCamera": _group(Alert.camera_id), "byDevice": _group(Alert.device_code)})
 
 
 @alerts_bp.route("/alerts/summary", methods=["GET"])

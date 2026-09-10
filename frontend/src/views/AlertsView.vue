@@ -1,6 +1,7 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api'
 import { usePoll, fmtTime } from '../usePoll'
 import { labelText, modelText } from '../i18n/classLabels'
@@ -9,6 +10,29 @@ import ImageLightbox from '../components/ImageLightbox.vue'
 import { canWrite } from '../auth'
 
 const { t, locale } = useI18n()
+const route = useRoute()
+const router = useRouter()
+
+// ?camera=<id> or ?device=<code> from the dashboard's alert badges: the
+// raised-alerts table below narrows to just that one. A banner shows the
+// filter is on, with a way to clear it.
+const cameraFilter = computed(() => route.query.camera || null)
+const deviceFilter = computed(() => route.query.device || null)
+const hasFilter = computed(() => !!(cameraFilter.value || deviceFilter.value))
+function clearFilter() {
+  router.replace({ path: '/alerts' })
+}
+
+// Arriving from a dashboard badge, jump straight to the raised-alerts list
+// rather than the top of the page (summary, the add-rule form, the rules
+// table all sit above it).
+function scrollToList() {
+  nextTick(() => {
+    setTimeout(() => {
+      document.getElementById('raised-alerts')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  })
+}
 
 const summary = ref({})
 const rules = ref([])
@@ -78,7 +102,12 @@ const { error, loading, refresh } = usePoll(async () => {
   const [s, r, a, c, d] = await Promise.all([
     api.alertSummary(),
     api.rules(),
-    api.alerts({ limit: alertsLimit.value, ...(onlyOpen.value ? { acknowledged: 'false' } : {}) }),
+    api.alerts({
+      limit: alertsLimit.value,
+      ...(onlyOpen.value ? { acknowledged: 'false' } : {}),
+      ...(cameraFilter.value ? { cameraId: cameraFilter.value } : {}),
+      ...(deviceFilter.value ? { deviceCode: deviceFilter.value } : {}),
+    }),
     cameras.value.length ? Promise.resolve(cameras.value) : api.cameras(),
     api.devices().catch(() => []),
   ])
@@ -98,9 +127,17 @@ const { error, loading, refresh } = usePoll(async () => {
 })
 
 onMounted(async () => {
+  if (hasFilter.value) scrollToList()
   // Separate from the poll: this one loads model weights server-side, so it is
   // slow the first time and must not run every five seconds.
   try { labels.value = await api.labels() } catch { freeText.value = true }
+})
+
+// Re-fetch from the first page when the URL filter changes.
+watch([cameraFilter, deviceFilter], () => {
+  alertsLimit.value = ALERTS_PAGE
+  refresh()
+  if (hasFilter.value) scrollToList()
 })
 
 async function addRule() {
@@ -330,8 +367,18 @@ const severityText = (sev) => severityTextRaw(sev, t)
     </div>
   </div>
 
-  <div class="card">
+  <div id="raised-alerts" class="card">
     <h2>{{ t('alerts.title') }}</h2>
+
+    <div v-if="hasFilter" class="row filter-banner">
+      <span>
+        {{ cameraFilter
+           ? t('alerts.filteredByCamera', { camera: cameraFilter })
+           : t('alerts.filteredByDevice', { device: deviceFilter }) }}
+      </span>
+      <button class="ghost" type="button" @click="clearFilter">{{ t('alerts.clearFilter') }}</button>
+    </div>
+
     <label class="row" style="margin-bottom:.6rem">
       <input type="checkbox" v-model="onlyOpen" style="width:auto" @change="toggleOnlyOpen">
       <span>{{ t('alerts.openAlerts') }}</span>
@@ -393,3 +440,15 @@ const severityText = (sev) => severityTextRaw(sev, t)
   <ImageLightbox :src="zoomed.src" :caption="zoomed.caption"
                  @close="zoomed = { src: '', caption: '' }" />
 </template>
+
+<style scoped>
+.filter-banner {
+  justify-content: space-between;
+  background: var(--brand-100);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .5rem .7rem;
+  margin-bottom: .6rem;
+  font-size: .85rem;
+}
+</style>

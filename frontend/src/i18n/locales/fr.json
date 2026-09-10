@@ -148,7 +148,10 @@
     "above": "au-dessus de",
     "below": "en dessous de",
     "threshold": "Seuil",
-    "deviceHint": "Vérifié sur la dernière valeur toutes les quelques secondes. La propriété doit correspondre à la clé publiée par l'appareil, par exemple temperature ou soilMoisture."
+    "deviceHint": "Vérifié sur la dernière valeur toutes les quelques secondes. La propriété doit correspondre à la clé publiée par l'appareil, par exemple temperature ou soilMoisture.",
+    "filteredByCamera": "Alertes de la caméra {camera} uniquement",
+    "filteredByDevice": "Alertes de l'appareil {device} uniquement",
+    "clearFilter": "Effacer le filtre"
   },
   "ask": {
     "title": "Assistant",

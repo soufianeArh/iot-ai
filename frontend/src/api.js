@@ -109,6 +109,8 @@ export const api = {
   deleteRule: (id) => del(`/ai/rules/${id}`),
   alerts: (params) => get(`/ai/alerts?${new URLSearchParams(params)}`),
   alertSummary: () => get('/ai/alerts/summary'),
+  // open (unacknowledged) counts + worst severity, grouped by camera and device
+  openAlertCounts: () => get('/ai/alerts/open-counts'),
   ackAlert: (id) => post(`/ai/alerts/${id}/ack`),
 
   // chat

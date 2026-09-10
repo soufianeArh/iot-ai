@@ -21,6 +21,12 @@ function goWatch(cameraId) {
 function goDetect(cameraId) {
   router.push({ path: '/detections', query: { highlight: cameraId } })
 }
+function goCameraAlerts(cameraId) {
+  router.push({ path: '/alerts', query: { camera: cameraId } })
+}
+function goDeviceAlerts(deviceCode) {
+  router.push({ path: '/alerts', query: { device: deviceCode } })
+}
 
 const devices = ref([])
 const deviceReadings = ref({}) // device id -> its most recently reported property, or null
@@ -30,19 +36,19 @@ const tasks = ref([])
 const models = ref([])
 const alertSummary = ref({})
 const recentAlerts = ref([])
-const openAlerts = ref([])
+const openCounts = ref({ byCamera: {}, byDevice: {} })
 
 const { error, loading, refresh } = usePoll(async () => {
-  const [d, c, tk, m, s, a, open, dets] = await Promise.all([
+  const [d, c, tk, m, s, a, counts, dets] = await Promise.all([
     api.devices(),
     api.cameras(),
     api.tasks(),
     models.value.length ? Promise.resolve(models.value) : api.models(),
     api.alertSummary(),
     api.alerts({ limit: 8 }),
-    // Every still-open alert, so each camera and device row can show how many
-    // of its own alerts are unresolved rather than looking calm regardless.
-    api.alerts({ limit: 200, acknowledged: 'false' }),
+    // Real per-camera / per-device open counts and worst severity, computed
+    // server side over every unresolved alert, not a capped page of them.
+    api.openAlertCounts(),
     // Wide enough to likely cover one recent frame per camera, this is a
     // summary, not the full history the Detections page already shows.
     api.detections({ limit: 100 }),
@@ -53,7 +59,7 @@ const { error, loading, refresh } = usePoll(async () => {
   models.value = m
   alertSummary.value = s
   recentAlerts.value = a
-  openAlerts.value = open
+  openCounts.value = counts
 
   // Keyed by camera, not by "is a task running right now": a camera keeps
   // showing its last known picture even between analysis runs, rather than
@@ -81,29 +87,8 @@ const devicesOnline = computed(() => devices.value.filter((d) => d.status === 'O
 const camerasReachable = computed(() => cameras.value.filter((c) => c.status === 'REACHABLE').length)
 const tasksRunning = computed(() => tasks.value.filter((tk) => tk.running).length)
 
-// Open alerts grouped by what they're about, so the camera tile and device
-// row can each carry their own count and worst severity.
-const RANK = { INFO: 1, WARNING: 2, CRITICAL: 3 }
-function summarise(list) {
-  const worst = list.reduce((w, a) => (RANK[a.severity] > RANK[w] ? a.severity : w), 'INFO')
-  return { count: list.length, severity: worst }
-}
-const alertsByCamera = computed(() => {
-  const out = {}
-  for (const a of openAlerts.value) {
-    if (a.cameraId == null) continue
-    ;(out[a.cameraId] ||= []).push(a)
-  }
-  return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, summarise(v)]))
-})
-const alertsByDevice = computed(() => {
-  const out = {}
-  for (const a of openAlerts.value) {
-    if (!a.deviceCode) continue
-    ;(out[a.deviceCode] ||= []).push(a)
-  }
-  return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, summarise(v)]))
-})
+const alertsByCamera = computed(() => openCounts.value.byCamera || {})
+const alertsByDevice = computed(() => openCounts.value.byDevice || {})
 
 // The camera or alert snapshot open full-screen, same treatment as the
 // Cameras and Alerts pages.
@@ -155,9 +140,11 @@ function openShot(src, caption) {
             <span class="pill" :class="c.status === 'REACHABLE' ? 'ok' : 'bad'">
               {{ c.status === 'REACHABLE' ? t('cameras.reachable') : t('cameras.unreachable') }}
             </span>
-            <span v-if="alertsByCamera[c.id]" class="pill" :class="alertsByCamera[c.id].severity">
-              {{ t('dashboard.alertsOpen', { count: alertsByCamera[c.id].count }) }}
-            </span>
+            <button v-if="alertsByCamera[c.id]" class="pill" :class="alertsByCamera[c.id].worstSeverity"
+                    type="button" @click="goCameraAlerts(c.id)"
+                    :title="t('alerts.title')">
+              {{ t('dashboard.alertsOpen', { count: $n(alertsByCamera[c.id].count, 'plain') }) }}
+            </button>
           </div>
           <div v-if="cameraShots[c.id]" class="hint">{{ fmtTime(cameraShots[c.id].detectedAt, locale) }}</div>
         </div>
@@ -187,9 +174,11 @@ function openShot(src, caption) {
           <tr v-for="d in devices" :key="d.id">
             <td>
               {{ d.name }}
-              <span v-if="alertsByDevice[d.deviceCode]" class="pill" :class="alertsByDevice[d.deviceCode].severity">
-                {{ t('dashboard.alertsOpen', { count: alertsByDevice[d.deviceCode].count }) }}
-              </span>
+              <button v-if="alertsByDevice[d.deviceCode]" class="pill" :class="alertsByDevice[d.deviceCode].worstSeverity"
+                      type="button" @click="goDeviceAlerts(d.deviceCode)"
+                      :title="t('alerts.title')">
+                {{ t('dashboard.alertsOpen', { count: $n(alertsByDevice[d.deviceCode].count, 'plain') }) }}
+              </button>
             </td>
             <td><span class="pill" :class="d.status === 'ONLINE' ? 'ok' : 'bad'">{{ d.status }}</span></td>
             <td v-if="deviceReadings[d.id]">
@@ -262,6 +251,17 @@ function openShot(src, caption) {
 </template>
 
 <style scoped>
+/* The open-alerts badge is a button (it navigates to the filtered Alerts
+   page), so it needs the plain button chrome stripped back to a pill. */
+button.pill {
+  border: none;
+  padding: .1rem .5rem;
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* A stat inside a card, not a card itself, so no nested card chrome. The
    page-ground background sets it apart from the white card behind it. */
 .stat-tile {
