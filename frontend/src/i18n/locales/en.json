@@ -148,10 +148,7 @@
     "above": "above",
     "below": "below",
     "threshold": "Threshold",
-    "deviceHint": "Checked against the latest reading every few seconds. The property must match the key the device publishes, e.g. temperature or soilMoisture.",
-    "filteredByCamera": "Showing alerts for camera {camera} only",
-    "filteredByDevice": "Showing alerts for device {device} only",
-    "clearFilter": "Clear filter"
+    "deviceHint": "Checked against the latest reading every few seconds. The property must match the key the device publishes, e.g. temperature or soilMoisture."
   },
   "ask": {
     "title": "Ask",

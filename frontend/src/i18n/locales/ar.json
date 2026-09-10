@@ -148,10 +148,7 @@
     "above": "أعلى من",
     "below": "أقل من",
     "threshold": "العتبة",
-    "deviceHint": "يفحص آخر قراءة كل بضع ثوانٍ. يجب أن تطابق الخاصية المفتاح الذي ينشره الجهاز، مثل temperature أو soilMoisture.",
-    "filteredByCamera": "عرض تنبيهات الكاميرا {camera} فقط",
-    "filteredByDevice": "عرض تنبيهات الجهاز {device} فقط",
-    "clearFilter": "مسح التصفية"
+    "deviceHint": "يفحص آخر قراءة كل بضع ثوانٍ. يجب أن تطابق الخاصية المفتاح الذي ينشره الجهاز، مثل temperature أو soilMoisture."
   },
   "ask": {
     "title": "المساعد",

@@ -13,14 +13,21 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
-// ?camera=<id> or ?device=<code> from the dashboard's alert badges: the
-// raised-alerts table below narrows to just that one. A banner shows the
-// filter is on, with a way to clear it.
+// The raised-alerts table can narrow to one camera or one device. The state
+// lives in the URL (?camera= / ?device=), so it's bookmarkable and the
+// dashboard's alert badges set it just by navigating here. Camera and
+// device are mutually exclusive, an alert comes from one or the other.
 const cameraFilter = computed(() => route.query.camera || null)
 const deviceFilter = computed(() => route.query.device || null)
 const hasFilter = computed(() => !!(cameraFilter.value || deviceFilter.value))
-function clearFilter() {
-  router.replace({ path: '/alerts' })
+
+function onCameraFilter(event) {
+  const v = event.target.value
+  router.replace(v ? { path: '/alerts', query: { camera: v } } : { path: '/alerts' })
+}
+function onDeviceFilter(event) {
+  const v = event.target.value
+  router.replace(v ? { path: '/alerts', query: { device: v } } : { path: '/alerts' })
 }
 
 // Arriving from a dashboard badge, jump straight to the raised-alerts list
@@ -370,19 +377,26 @@ const severityText = (sev) => severityTextRaw(sev, t)
   <div id="raised-alerts" class="card">
     <h2>{{ t('alerts.title') }}</h2>
 
-    <div v-if="hasFilter" class="row filter-banner">
-      <span>
-        {{ cameraFilter
-           ? t('alerts.filteredByCamera', { camera: cameraFilter })
-           : t('alerts.filteredByDevice', { device: deviceFilter }) }}
-      </span>
-      <button class="ghost" type="button" @click="clearFilter">{{ t('alerts.clearFilter') }}</button>
+    <div class="row" style="margin-bottom:.6rem; gap:.9rem; flex-wrap:wrap">
+      <label class="row" style="gap:.35rem">
+        <input type="checkbox" v-model="onlyOpen" style="width:auto" @change="toggleOnlyOpen">
+        <span>{{ t('alerts.openAlerts') }}</span>
+      </label>
+      <label class="row" style="gap:.35rem">
+        <span class="hint">{{ t('common.camera') }}</span>
+        <select :value="cameraFilter || ''" @change="onCameraFilter" style="width:auto">
+          <option value="">{{ t('alerts.anyCamera') }}</option>
+          <option v-for="c in cameras" :key="c.id" :value="String(c.id)">{{ c.id }} — {{ c.name }}</option>
+        </select>
+      </label>
+      <label class="row" style="gap:.35rem">
+        <span class="hint">{{ t('alerts.device') }}</span>
+        <select :value="deviceFilter || ''" @change="onDeviceFilter" style="width:auto">
+          <option value="">{{ t('alerts.anyDevice') }}</option>
+          <option v-for="d in devices" :key="d.id" :value="d.deviceCode">{{ d.name }} ({{ d.deviceCode }})</option>
+        </select>
+      </label>
     </div>
-
-    <label class="row" style="margin-bottom:.6rem">
-      <input type="checkbox" v-model="onlyOpen" style="width:auto" @change="toggleOnlyOpen">
-      <span>{{ t('alerts.openAlerts') }}</span>
-    </label>
     <!-- --row-h is larger here: every row carries a 68px thumbnail. -->
     <div class="table-wrap scroll-rows" style="--rows: 8; --row-h: 5.4rem">
       <table>
@@ -440,15 +454,3 @@ const severityText = (sev) => severityTextRaw(sev, t)
   <ImageLightbox :src="zoomed.src" :caption="zoomed.caption"
                  @close="zoomed = { src: '', caption: '' }" />
 </template>
-
-<style scoped>
-.filter-banner {
-  justify-content: space-between;
-  background: var(--brand-100);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: .5rem .7rem;
-  margin-bottom: .6rem;
-  font-size: .85rem;
-}
-</style>
