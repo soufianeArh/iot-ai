@@ -18,10 +18,19 @@ const { highlightId } = useRowHighlight('dev-row-')
 const { t, locale } = useI18n()
 const severityText = (sev) => severityTextRaw(sev, t)
 const devices = ref([])
+const zones = ref([])
 const properties = ref({})   // device id -> latest property rows
-const form = ref({ name: '', deviceCode: '', productKey: '' })
+const form = ref({ name: '', deviceCode: '', productKey: '', description: '', location: '', zoneId: '' })
 const busy = ref(false)
 const formError = ref('')
+
+// null shows every device, a zone id filters the table to that zone, the
+// empty string filters to devices with no zone at all.
+const zoneFilter = ref('all')
+
+// Inline edit of the selected device, canWrite only. null means not editing.
+const editForm = ref(null)
+const editError = ref('')
 
 // ---- chart state ---------------------------------------------------------
 const property = ref('temperature')
@@ -38,6 +47,13 @@ const selectedId = ref(Number(route.query.highlight) || null)
 
 const selected = computed(() =>
   devices.value.find((d) => d.id === selectedId.value) || null)
+
+const filteredDevices = computed(() => {
+  if (zoneFilter.value === 'all') return devices.value
+  if (zoneFilter.value === '') return devices.value.filter((d) => !d.zoneId)
+  const id = Number(zoneFilter.value)
+  return devices.value.filter((d) => d.zoneId === id)
+})
 
 // Brand colours, not status green/red: a normal reading shouldn't look like
 // a verdict.
@@ -79,6 +95,7 @@ const markers = computed(() =>
 
 const { error, loading, refresh } = usePoll(async () => {
   devices.value = await api.devices()
+  try { zones.value = await api.zones() } catch { zones.value = [] }
   const entries = await Promise.all(devices.value.map(async (d) => {
     try { return [d.id, await api.deviceProperties(d.id)] } catch { return [d.id, []] }
   }))
@@ -158,11 +175,55 @@ async function addDevice() {
       name: form.value.name.trim(),
       deviceCode: form.value.deviceCode.trim(),
       productKey: form.value.productKey.trim(),
+      description: form.value.description.trim() || null,
+      location: form.value.location.trim() || null,
+      zoneId: form.value.zoneId ? Number(form.value.zoneId) : null,
     })
-    form.value = { name: '', deviceCode: '', productKey: '' }
+    form.value = { name: '', deviceCode: '', productKey: '', description: '', location: '', zoneId: '' }
     await refresh()
   } catch (e) {
     formError.value = e.message
+  } finally {
+    busy.value = false
+  }
+}
+
+function startEdit() {
+  const d = selected.value
+  if (!d) return
+  editError.value = ''
+  editForm.value = {
+    name: d.name,
+    productKey: d.productKey,
+    status: d.status,
+    description: d.description || '',
+    location: d.location || '',
+    zoneId: d.zoneId ? String(d.zoneId) : '',
+  }
+}
+function cancelEdit() {
+  editForm.value = null
+  editError.value = ''
+}
+async function saveEdit() {
+  const d = selected.value
+  const buf = editForm.value
+  if (!d || !buf || !buf.name.trim()) return
+  editError.value = ''
+  busy.value = true
+  try {
+    await api.updateDevice(d.id, {
+      name: buf.name.trim(),
+      productKey: buf.productKey.trim(),
+      status: buf.status,
+      description: buf.description.trim() || null,
+      location: buf.location.trim() || null,
+      zoneId: buf.zoneId ? Number(buf.zoneId) : null,
+    })
+    editForm.value = null
+    await refresh()
+  } catch (e) {
+    editError.value = e.message
   } finally {
     busy.value = false
   }
@@ -198,6 +259,50 @@ function latest(device, key) {
     <div class="hint mqtt-line">
       {{ t('devices.broker') }} <code class="mono">{{ BROKER_URL }}</code>
       · {{ t('devices.topicLabel') }} <code class="mono">{{ selectedTopic }}</code>
+    </div>
+
+    <!-- ---- attributes: zone, location, description ---- -->
+    <div class="attrs">
+      <template v-if="!editForm">
+        <dl class="attr-list">
+          <div><dt>{{ t('devices.zone') }}</dt><dd>{{ selected.zoneName || t('devices.noZone') }}</dd></div>
+          <div><dt>{{ t('devices.location') }}</dt><dd>{{ selected.location || '—' }}</dd></div>
+          <div><dt>{{ t('devices.description') }}</dt><dd>{{ selected.description || '—' }}</dd></div>
+        </dl>
+        <button v-if="canWrite" class="ghost" type="button" @click="startEdit">{{ t('common.edit') }}</button>
+      </template>
+
+      <form v-else class="grid" @submit.prevent="saveEdit">
+        <label class="field">
+          <span>{{ t('common.name') }}</span>
+          <input v-model="editForm.name" required maxlength="128">
+        </label>
+        <label class="field">
+          <span>{{ t('devices.productKey') }}</span>
+          <input v-model="editForm.productKey" class="ltr" required maxlength="64"
+                 dir="ltr" lang="en" spellcheck="false" autocapitalize="off" autocomplete="off">
+        </label>
+        <label class="field">
+          <span>{{ t('devices.zone') }}</span>
+          <select v-model="editForm.zoneId">
+            <option value="">{{ t('devices.noZone') }}</option>
+            <option v-for="z in zones" :key="z.id" :value="String(z.id)">{{ z.name }}</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>{{ t('devices.location') }}</span>
+          <input v-model="editForm.location" maxlength="255">
+        </label>
+        <label class="field">
+          <span>{{ t('devices.description') }}</span>
+          <input v-model="editForm.description" maxlength="500">
+        </label>
+        <div class="field row" style="align-self:end">
+          <button type="submit" :disabled="busy">{{ t('common.save') }}</button>
+          <button class="ghost" type="button" @click="cancelEdit">{{ t('common.cancel') }}</button>
+        </div>
+      </form>
+      <p v-if="editError" class="error">{{ editError }}</p>
     </div>
 
     <div v-if="!(properties[selected.id] || []).length" class="hint">
@@ -268,11 +373,27 @@ function latest(device, key) {
                dir="ltr" lang="en" spellcheck="false"
                autocapitalize="off" autocomplete="off" placeholder="pk-test">
       </label>
+      <label class="field">
+        <span>{{ t('devices.zone') }}</span>
+        <select v-model="form.zoneId">
+          <option value="">{{ t('devices.noZone') }}</option>
+          <option v-for="z in zones" :key="z.id" :value="String(z.id)">{{ z.name }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>{{ t('devices.location') }}</span>
+        <input v-model="form.location" maxlength="255" :placeholder="t('devices.locationHint')">
+      </label>
+      <label class="field">
+        <span>{{ t('devices.description') }}</span>
+        <input v-model="form.description" maxlength="500">
+      </label>
       <div class="field" style="align-self:end">
         <button type="submit" :disabled="busy">{{ t('common.add') }}</button>
       </div>
     </form>
     <p class="hint">{{ t('devices.topicHint') }}</p>
+    <p class="hint">{{ t('devices.manageZones') }}</p>
     <div class="mqtt-info">
       <div class="hint">{{ t('devices.mqttConnect') }}</div>
       <div class="rule-line">
@@ -317,6 +438,16 @@ function latest(device, key) {
   </div>
 
   <div class="card">
+    <div class="row" style="margin-bottom:.6rem">
+      <label class="field" style="width:auto">
+        <span>{{ t('devices.zone') }}</span>
+        <select v-model="zoneFilter" style="width:auto">
+          <option value="all">{{ t('devices.allZones') }}</option>
+          <option value="">{{ t('devices.noZone') }}</option>
+          <option v-for="z in zones" :key="z.id" :value="String(z.id)">{{ z.name }}</option>
+        </select>
+      </label>
+    </div>
     <div class="table-wrap scroll-rows" style="--rows: 10">
       <table>
         <thead>
@@ -324,12 +455,13 @@ function latest(device, key) {
             <th>{{ t('common.name') }}</th>
             <th>{{ t('devices.code') }}</th>
             <th>{{ t('common.status') }}</th>
+            <th>{{ t('devices.zone') }}</th>
             <th>{{ t('devices.properties') }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="d in devices" :key="d.id"
+          <tr v-for="d in filteredDevices" :key="d.id"
               :id="'dev-row-' + d.id"
               class="pick" :class="{ active: d.id === selectedId, 'row-flash': d.id === highlightId }"
               @click="selectDevice(d)">
@@ -337,6 +469,10 @@ function latest(device, key) {
             <td><code class="mono">{{ d.deviceCode }}</code></td>
             <td>
               <span class="pill" :class="d.status === 'ONLINE' ? 'ok' : 'bad'">{{ d.status }}</span>
+            </td>
+            <td>
+              {{ d.zoneName || t('devices.noZone') }}
+              <span v-if="d.location" class="hint"><br>{{ d.location }}</span>
             </td>
             <td>
               <span v-if="!(properties[d.id] || []).length" class="hint">
@@ -352,8 +488,8 @@ function latest(device, key) {
             <!-- .stop, or deleting a row would also select it on the way out. -->
             <td><button v-if="canWrite" class="danger" @click.stop="remove(d)">{{ t('common.delete') }}</button></td>
           </tr>
-          <tr v-if="!devices.length && !loading">
-            <td colspan="5" class="hint">{{ t('common.none') }}</td>
+          <tr v-if="!filteredDevices.length && !loading">
+            <td colspan="6" class="hint">{{ t('common.none') }}</td>
           </tr>
         </tbody>
       </table>
@@ -364,6 +500,11 @@ function latest(device, key) {
 <style scoped>
 .metric { padding: .1rem 0; }
 .metric .value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; }
+
+.attrs { margin: .6rem 0; padding: .6rem 0; border-top: 1px dashed var(--border, #d8d8d8); }
+.attr-list { display: flex; flex-wrap: wrap; gap: .3rem 1.4rem; margin: 0 0 .5rem; }
+.attr-list dt { font-size: .78rem; color: var(--text-dim); }
+.attr-list dd { margin: 0; font-size: .9rem; }
 
 .rules-note { margin: .6rem 0 .2rem; }
 .rule-line { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap;

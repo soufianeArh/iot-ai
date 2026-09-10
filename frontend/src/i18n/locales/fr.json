@@ -9,6 +9,7 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "devices": "Appareils",
+    "zones": "Zones",
     "cameras": "Caméras",
     "detections": "Détections",
     "alerts": "Alertes",
@@ -21,6 +22,7 @@
     "refresh": "Actualiser",
     "delete": "Supprimer",
     "add": "Ajouter",
+    "edit": "Modifier",
     "save": "Enregistrer",
     "cancel": "Annuler",
     "enable": "Activer",
@@ -52,7 +54,16 @@
     "properties": "Propriétés",
     "noProperties": "Aucune valeur reçue",
     "addDevice": "Ajouter un appareil",
+    "editDevice": "Modifier l'appareil",
     "productKey": "Clé produit",
+    "description": "Description",
+    "descriptionHint": "Une note libre sur ce capteur. Toute langue.",
+    "location": "Emplacement",
+    "locationHint": "Où il se trouve physiquement, plus précis que la zone. Par exemple clôture nord, serre rangée 3.",
+    "zone": "Zone",
+    "noZone": "Aucune zone",
+    "allZones": "Toutes les zones",
+    "manageZones": "Les zones se créent et se nomment sur la page Zones.",
     "topicHint": "Un appareil publie du JSON sur iot/{productKey}/{deviceCode}/properties en MQTT, avec la clé produit et le code appareil ci-dessous - le sujet exact se met à jour au fur et à mesure.",
     "mqttConnect": "Comment cet appareil se connecte",
     "broker": "Broker",
@@ -211,6 +222,15 @@
     "resetPassword": "Réinitialiser le mot de passe",
     "newPassword": "Nouveau mot de passe",
     "confirmDelete": "Supprimer {name} ? Cette action est irréversible."
+  },
+  "zones": {
+    "title": "Zones",
+    "hint": "Une zone est une partie de l'exploitation : une parcelle, un champ, une serre. Un appareil appartient à une zone ou à aucune. Seul un administrateur peut créer, renommer ou supprimer une zone.",
+    "addZone": "Ajouter une zone",
+    "namePlaceholder": "Champ nord",
+    "description": "Description",
+    "deviceCount": "Appareils",
+    "confirmDelete": "Supprimer {name} ? Ses {count} appareil(s) restent, simplement sans zone."
   },
   "dashboard": {
     "title": "Tableau de bord",

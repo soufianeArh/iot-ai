@@ -18,6 +18,11 @@ public record DeviceCreateRequest(
         @Size(max = 64)
         String productKey,
 
-        DeviceStatus status
+        DeviceStatus status,
+
+        // step 4, all optional
+        @Size(max = 500) String description,
+        @Size(max = 255) String location,
+        Long zoneId
 ) {
 }

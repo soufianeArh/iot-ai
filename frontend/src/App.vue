@@ -61,6 +61,7 @@ async function onLogout() {
       <nav class="side-nav">
         <RouterLink to="/dashboard">{{ t('nav.dashboard') }}</RouterLink>
         <RouterLink to="/devices">{{ t('nav.devices') }}</RouterLink>
+        <RouterLink v-if="isAdmin" to="/zones">{{ t('nav.zones') }}</RouterLink>
         <RouterLink to="/cameras">{{ t('nav.cameras') }}</RouterLink>
         <RouterLink to="/detections">{{ t('nav.detections') }}</RouterLink>
         <RouterLink to="/alerts">{{ t('nav.alerts') }}</RouterLink>

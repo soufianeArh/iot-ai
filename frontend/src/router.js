@@ -10,6 +10,7 @@ const routes = [
   { path: '/users', component: () => import('./views/UsersView.vue'), meta: { adminOnly: true } },
   { path: '/dashboard', component: () => import('./views/DashboardView.vue') },
   { path: '/devices', component: () => import('./views/DevicesView.vue') },
+  { path: '/zones', component: () => import('./views/ZonesView.vue'), meta: { adminOnly: true } },
   { path: '/cameras', component: () => import('./views/CamerasView.vue') },
   { path: '/detections', component: () => import('./views/DetectionsView.vue') },
   { path: '/alerts', component: () => import('./views/AlertsView.vue') },

@@ -37,6 +37,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Docker's healthcheck has no token, same as every other service here.
                         .requestMatchers("/actuator/health").permitAll()
+                        // Zones: anyone may read them (the device form and filters need
+                        // the list), but only ADMIN creates, renames or deletes one.
+                        // Assigning a device to a zone is a device write, still OPERATOR.
+                        .requestMatchers(HttpMethod.GET, "/api/zones/**").authenticated()
+                        .requestMatchers("/api/zones/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/**").authenticated()
                         .anyRequest().hasAnyRole("ADMIN", "OPERATOR", "SERVICE"))
                 .exceptionHandling(ex -> ex

@@ -9,6 +9,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "devices": "Devices",
+    "zones": "Zones",
     "cameras": "Cameras",
     "detections": "Detections",
     "alerts": "Alerts",
@@ -21,6 +22,7 @@
     "refresh": "Refresh",
     "delete": "Delete",
     "add": "Add",
+    "edit": "Edit",
     "save": "Save",
     "cancel": "Cancel",
     "enable": "Enable",
@@ -52,7 +54,16 @@
     "properties": "Properties",
     "noProperties": "No values reported yet",
     "addDevice": "Add a device",
+    "editDevice": "Edit device",
     "productKey": "Product key",
+    "description": "Description",
+    "descriptionHint": "A free note about this sensor. Any language.",
+    "location": "Location",
+    "locationHint": "Where it physically sits, finer than the zone. For example north fence, greenhouse row 3.",
+    "zone": "Zone",
+    "noZone": "No zone",
+    "allZones": "All zones",
+    "manageZones": "Zones are created and named on the Zones page.",
     "topicHint": "A device publishes JSON to iot/{productKey}/{deviceCode}/properties over MQTT, using the product key and device code below - the exact topic updates as you type.",
     "mqttConnect": "How this device connects",
     "broker": "Broker",
@@ -211,6 +222,15 @@
     "resetPassword": "Reset password",
     "newPassword": "New password",
     "confirmDelete": "Delete {name}? This cannot be undone."
+  },
+  "zones": {
+    "title": "Zones",
+    "hint": "A zone is a part of the farm: a plot, a field, a greenhouse. A device belongs to one zone or none. Only an admin can create, rename or delete a zone.",
+    "addZone": "Add a zone",
+    "namePlaceholder": "North field",
+    "description": "Description",
+    "deviceCount": "Devices",
+    "confirmDelete": "Delete {name}? Its {count} device(s) stay, just without a zone."
   },
   "dashboard": {
     "title": "Dashboard",

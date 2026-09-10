@@ -169,6 +169,9 @@ function openShot(src, caption) {
           <strong>{{ d.name }}</strong>
           <span class="pill" :class="d.status === 'ONLINE' ? 'ok' : 'bad'">{{ d.status }}</span>
         </div>
+        <div v-if="d.zoneName || d.location" class="hint">
+          {{ [d.zoneName, d.location].filter(Boolean).join(' · ') }}
+        </div>
         <div v-if="deviceReadings[d.id]">
           <code class="mono">{{ deviceReadings[d.id].key }}</code> = <b>{{ deviceReadings[d.id].value }}</b>
         </div>

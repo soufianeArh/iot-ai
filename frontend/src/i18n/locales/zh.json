@@ -9,6 +9,7 @@
   "nav": {
     "dashboard": "仪表盘",
     "devices": "设备",
+    "zones": "区域",
     "cameras": "摄像头",
     "detections": "检测",
     "alerts": "告警",
@@ -21,6 +22,7 @@
     "refresh": "刷新",
     "delete": "删除",
     "add": "添加",
+    "edit": "编辑",
     "save": "保存",
     "cancel": "取消",
     "enable": "启用",
@@ -52,7 +54,16 @@
     "properties": "属性",
     "noProperties": "尚未收到任何数值",
     "addDevice": "添加设备",
+    "editDevice": "编辑设备",
     "productKey": "产品密钥",
+    "description": "描述",
+    "descriptionHint": "关于该传感器的自由备注。任何语言均可。",
+    "location": "位置",
+    "locationHint": "它的实际所在，比区域更精确。例如北侧围栏、温室第 3 行。",
+    "zone": "区域",
+    "noZone": "无区域",
+    "allZones": "全部区域",
+    "manageZones": "区域在「区域」页面创建和命名。",
     "topicHint": "设备通过 MQTT 将 JSON 发布到 iot/{productKey}/{deviceCode}/properties，使用下方填写的产品密钥和设备编码——具体主题会随输入实时更新。",
     "mqttConnect": "该设备的连接方式",
     "broker": "代理地址",
@@ -211,6 +222,15 @@
     "resetPassword": "重置密码",
     "newPassword": "新密码",
     "confirmDelete": "删除 {name}？此操作无法撤销。"
+  },
+  "zones": {
+    "title": "区域",
+    "hint": "区域是农场的一部分：一块地、一片田、一座温室。每台设备属于一个区域或不属于任何区域。只有管理员可以创建、重命名或删除区域。",
+    "addZone": "添加区域",
+    "namePlaceholder": "北地",
+    "description": "描述",
+    "deviceCount": "设备数",
+    "confirmDelete": "删除 {name}？其 {count} 台设备会保留，只是不再属于任何区域。"
   },
   "dashboard": {
     "title": "仪表盘",

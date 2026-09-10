@@ -14,15 +14,15 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(DeviceNotFoundException.class)
-    public ResponseEntity<ApiError> handleNotFound(DeviceNotFoundException ex) {
+    @ExceptionHandler({DeviceNotFoundException.class, ZoneNotFoundException.class})
+    public ResponseEntity<ApiError> handleNotFound(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiError.of(404, "Not Found", ex.getMessage()));
     }
 //device duplicate during creation
     //device duplace in mqtt saved as unregisterd (not this error)
-    @ExceptionHandler(DuplicateDeviceCodeException.class)
-    public ResponseEntity<ApiError> handleDuplicate(DuplicateDeviceCodeException ex) {
+    @ExceptionHandler({DuplicateDeviceCodeException.class, DuplicateZoneNameException.class})
+    public ResponseEntity<ApiError> handleDuplicate(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiError.of(409, "Conflict", ex.getMessage()));
     }

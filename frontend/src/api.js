@@ -74,7 +74,15 @@ export const api = {
   // devices
   devices: () => get('/api/devices'),
   addDevice: (body) => post('/api/devices', body),
+  updateDevice: (id, body) => put(`/api/devices/${id}`, body),
   deleteDevice: (id) => del(`/api/devices/${id}`),
+
+  // zones, a device belongs to at most one. Reading is open to any role,
+  // create/rename/delete is ADMIN only (enforced server side).
+  zones: () => get('/api/zones'),
+  addZone: (body) => post('/api/zones', body),
+  updateZone: (id, body) => put(`/api/zones/${id}`, body),
+  deleteZone: (id) => del(`/api/zones/${id}`),
   deviceProperties: (id) => get(`/api/devices/${id}/properties`),
   // Same endpoint: with `key` it returns that property's history, newest
   // first, instead of the latest value of every property.

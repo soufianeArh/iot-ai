@@ -33,6 +33,18 @@ public class Device {
     @Column(name = "status", nullable = false, length = 16)
     private DeviceStatus status;
 
+    // Step 4 attributes, all optional. zoneId is a plain column, not a
+    // @ManyToOne: the device list resolves zone names from one findAll of
+    // zones rather than a join per row.
+    @Column(name = "description", length = 500)
+    private String description;
+
+    @Column(name = "location", length = 255)
+    private String location;
+
+    @Column(name = "zone_id")
+    private Long zoneId;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -81,6 +93,30 @@ public class Device {
 
     public void setStatus(DeviceStatus status) {
         this.status = status;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public Long getZoneId() {
+        return zoneId;
+    }
+
+    public void setZoneId(Long zoneId) {
+        this.zoneId = zoneId;
     }
 
     public OffsetDateTime getCreatedAt() {

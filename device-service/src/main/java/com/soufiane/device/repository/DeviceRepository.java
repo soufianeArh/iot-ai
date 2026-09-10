@@ -10,4 +10,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     boolean existsByDeviceCode(String deviceCode);
 
     Optional<Device> findByDeviceCode(String deviceCode);
+
+    long countByZoneId(Long zoneId);
 }
