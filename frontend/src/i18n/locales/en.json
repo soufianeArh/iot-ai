@@ -2,9 +2,12 @@
   "app": {
     "name": "MQ-AI",
     "tagline": "Agricultural monitoring",
-    "language": "Language"
+    "language": "Language",
+    "hideSidebar": "Hide sidebar",
+    "showSidebar": "Show sidebar"
   },
   "nav": {
+    "dashboard": "Dashboard",
     "devices": "Devices",
     "cameras": "Cameras",
     "detections": "Detections",
@@ -208,5 +211,21 @@
     "resetPassword": "Reset password",
     "newPassword": "New password",
     "confirmDelete": "Delete {name}? This cannot be undone."
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "hint": "A quick look at the whole platform, devices, cameras, detection, and alerts, without visiting each page separately.",
+    "devicesOnline": "Devices online",
+    "camerasReachable": "Cameras reachable",
+    "tasksRunning": "Detection tasks running",
+    "modelsAvailable": "Detection models available",
+    "platform": "Platform",
+    "alertsOverview": "Alerts",
+    "cameras": "Cameras",
+    "noSnapshot": "No snapshot yet",
+    "deviceReadings": "Device readings",
+    "alertsOpen": "{count} open",
+    "detect": "Detect",
+    "recentAlerts": "Recent alerts"
   }
 }

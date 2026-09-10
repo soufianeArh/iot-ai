@@ -58,36 +58,63 @@ body {
 
 /* ---------------------------------------------------------------- layout -- */
 
-.topbar {
+/* Full height shell: sidebar and content each scroll on their own, rather
+   than the whole page scrolling under a fixed header like the old topbar did. */
+.app-shell { display: flex; height: 100vh; overflow: hidden; }
+
+.sidebar {
+  width: 220px;
+  flex: 0 0 220px;
+  height: 100%;
+  overflow-y: auto;
   background: var(--brand-900);
   color: #fff;
-  padding: 0 var(--gap);
   display: flex;
-  align-items: center;
-  gap: var(--gap);
-  flex-wrap: wrap;
-  min-height: 52px;
+  flex-direction: column;
+  padding: var(--gap) 0;
 }
 
-.brand { font-weight: 700; letter-spacing: .04em; font-size: 1.05rem; }
-.brand small { font-weight: 400; opacity: .7; margin-inline-start: .5rem; font-size: .75rem; }
+.sidebar .brand { padding: 0 var(--gap) var(--gap); font-weight: 700; letter-spacing: .04em; font-size: 1.05rem; }
+.brand small { display: block; font-weight: 400; opacity: .7; font-size: .75rem; margin-top: .2rem; }
 
-.topbar nav { display: flex; gap: .25rem; flex-wrap: wrap; }
+.side-nav { display: flex; flex-direction: column; gap: .15rem; padding: 0 .6rem; }
 
-.topbar nav a {
+.side-nav a {
   color: #cfe0f5;
   text-decoration: none;
-  padding: .45rem .7rem;
+  padding: .55rem .8rem;
   border-radius: var(--radius);
   white-space: nowrap;
 }
-.topbar nav a:hover { background: rgba(255, 255, 255, .1); color: #fff; }
-.topbar nav a.router-link-active { background: var(--brand-600); color: #fff; }
+.side-nav a:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.side-nav a.router-link-active { background: var(--brand-600); color: #fff; }
 
-/* Keeps the language picker at the trailing edge in both directions. */
-.topbar .spacer { margin-inline-start: auto; }
+/* Pushes the language picker and user box to the bottom of the sidebar. */
+.sidebar-spacer { flex: 1; }
 
-main { padding: var(--gap); max-width: 1200px; margin: 0 auto; }
+main.content {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--gap);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Below this, a 220px fixed sidebar starts to crowd the content too much,
+   so it collapses back to a horizontal bar, the old topbar's own shape. */
+@media (max-width: 720px) {
+  .app-shell { flex-direction: column; height: auto; overflow: visible; }
+  .sidebar {
+    width: 100%; flex: none; height: auto; overflow: visible;
+    flex-direction: row; flex-wrap: wrap; align-items: center; gap: var(--gap);
+  }
+  .sidebar .brand { padding: 0; padding-inline-start: var(--gap); }
+  .side-nav { flex-direction: row; flex-wrap: wrap; padding: 0; }
+  .sidebar-spacer { display: none; flex-basis: 100%; }
+  main.content { height: auto; }
+}
 
 h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
 .page-hint { color: var(--text-dim); margin: 0 0 var(--gap); font-size: .88rem; }
@@ -176,6 +203,20 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 
 .error { color: var(--crit); font-size: .85rem; }
 .success { color: var(--ok); font-size: .85rem; }
+
+/* Transient "this is the row you came here for" cue, set by a ?highlight=
+   query from the dashboard's Watch / Detect buttons. The animation fades it
+   out on its own; the view removes the class after it finishes. */
+.row-flash { animation: row-flash 4s ease-out; }
+@keyframes row-flash {
+  0%, 20% { background: var(--brand-100); box-shadow: inset 3px 0 0 var(--brand-600); }
+  100%    { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+}
+[dir="rtl"] .row-flash { animation-name: row-flash-rtl; }
+@keyframes row-flash-rtl {
+  0%, 20% { background: var(--brand-100); box-shadow: inset -3px 0 0 var(--brand-600); }
+  100%    { background: transparent; box-shadow: inset -3px 0 0 transparent; }
+}
 
 .stat { font-size: 1.6rem; font-weight: 700; }
 .stat-label { color: var(--text-dim); font-size: .8rem; }

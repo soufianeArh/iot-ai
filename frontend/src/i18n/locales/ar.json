@@ -2,9 +2,12 @@
   "app": {
     "name": "MQ-AI",
     "tagline": "المراقبة الزراعية",
-    "language": "اللغة"
+    "language": "اللغة",
+    "hideSidebar": "إخفاء القائمة الجانبية",
+    "showSidebar": "إظهار القائمة الجانبية"
   },
   "nav": {
+    "dashboard": "لوحة التحكم",
     "devices": "الأجهزة",
     "cameras": "الكاميرات",
     "detections": "الاكتشافات",
@@ -208,5 +211,21 @@
     "resetPassword": "إعادة تعيين كلمة المرور",
     "newPassword": "كلمة المرور الجديدة",
     "confirmDelete": "حذف {name}؟ لا يمكن التراجع عن هذا."
+  },
+  "dashboard": {
+    "title": "لوحة التحكم",
+    "hint": "نظرة سريعة على المنصة بأكملها، الأجهزة والكاميرات والاكتشاف والتنبيهات، دون زيارة كل صفحة على حدة.",
+    "devicesOnline": "الأجهزة المتصلة",
+    "camerasReachable": "الكاميرات المتاحة",
+    "tasksRunning": "مهام الاكتشاف الجارية",
+    "modelsAvailable": "نماذج الاكتشاف المتاحة",
+    "platform": "المنصة",
+    "alertsOverview": "التنبيهات",
+    "cameras": "الكاميرات",
+    "noSnapshot": "لا توجد صورة بعد",
+    "deviceReadings": "قراءات الأجهزة",
+    "alertsOpen": "{count} مفتوحة",
+    "detect": "كشف",
+    "recentAlerts": "أحدث التنبيهات"
   }
 }

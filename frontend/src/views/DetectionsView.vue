@@ -6,8 +6,13 @@ import { usePoll, fmtTime } from '../usePoll'
 import { labelText, modelText } from '../i18n/classLabels'
 import ImageLightbox from '../components/ImageLightbox.vue'
 import { canWrite } from '../auth'
+import { useRowHighlight } from '../useRowHighlight'
 
 const { t, locale } = useI18n()
+
+// ?highlight=<id> from the dashboard's Detect button: flash that camera's
+// task row and scroll to it, then let it fade.
+const { highlightId } = useRowHighlight('det-row-')
 
 const cameras = ref([])
 const tasks = ref({})       // cameraId -> task
@@ -94,7 +99,8 @@ async function stop(cameraId) {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in cameras" :key="c.id">
+          <tr v-for="c in cameras" :key="c.id"
+              :id="'det-row-' + c.id" :class="{ 'row-flash': c.id === highlightId }">
             <td>{{ c.id }} — {{ c.name }}</td>
             <td>
               <span class="pill" :class="tasks[c.id]?.running ? 'ok' : 'idle'">

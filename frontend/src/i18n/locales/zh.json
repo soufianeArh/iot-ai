@@ -2,9 +2,12 @@
   "app": {
     "name": "MQ-AI",
     "tagline": "农业监控",
-    "language": "语言"
+    "language": "语言",
+    "hideSidebar": "隐藏侧边栏",
+    "showSidebar": "显示侧边栏"
   },
   "nav": {
+    "dashboard": "仪表盘",
     "devices": "设备",
     "cameras": "摄像头",
     "detections": "检测",
@@ -208,5 +211,21 @@
     "resetPassword": "重置密码",
     "newPassword": "新密码",
     "confirmDelete": "删除 {name}？此操作无法撤销。"
+  },
+  "dashboard": {
+    "title": "仪表盘",
+    "hint": "一眼掌握整个平台的情况：设备、摄像头、检测和告警，无需逐页查看。",
+    "devicesOnline": "在线设备",
+    "camerasReachable": "可访问摄像头",
+    "tasksRunning": "正在运行的检测任务",
+    "modelsAvailable": "可用检测模型",
+    "platform": "平台",
+    "alertsOverview": "告警",
+    "cameras": "摄像头",
+    "noSnapshot": "暂无快照",
+    "deviceReadings": "设备读数",
+    "alertsOpen": "{count} 个未处理",
+    "detect": "检测",
+    "recentAlerts": "最近告警"
   }
 }

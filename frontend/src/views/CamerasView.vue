@@ -4,9 +4,14 @@ import { useI18n } from 'vue-i18n'
 import { api } from '../api'
 import { usePoll } from '../usePoll'
 import { canWrite } from '../auth'
+import { useRowHighlight } from '../useRowHighlight'
 
 const { t } = useI18n()
 const cameras = ref([])
+
+// ?highlight=<id> from the dashboard: flash that camera's row and scroll to
+// it, then let it fade. Nothing sticky, just a "here's the one" cue.
+const { highlightId } = useRowHighlight('cam-row-')
 const form = ref({ name: '', rtspUrl: '' })
 const busy = ref(false)
 const formError = ref('')
@@ -250,7 +255,8 @@ onUnmounted(() => stopWatching())
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in cameras" :key="c.id">
+          <tr v-for="c in cameras" :key="c.id"
+              :id="'cam-row-' + c.id" :class="{ 'row-flash': c.id === highlightId }">
             <td>{{ c.id }} — {{ c.name }}</td>
             <td>
               <span class="pill" :class="c.status === 'REACHABLE' ? 'ok' : 'bad'">

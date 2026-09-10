@@ -4,16 +4,17 @@ import { session, isAdmin } from './auth'
 // Lazy-loaded so the initial bundle stays small; chat especially is only
 // opened occasionally.
 const routes = [
-  { path: '/', redirect: '/devices' },
+  { path: '/', redirect: '/dashboard' },
   { path: '/login', component: () => import('./views/LoginView.vue'), meta: { public: true } },
   { path: '/profile', component: () => import('./views/ProfileView.vue') },
   { path: '/users', component: () => import('./views/UsersView.vue'), meta: { adminOnly: true } },
+  { path: '/dashboard', component: () => import('./views/DashboardView.vue') },
   { path: '/devices', component: () => import('./views/DevicesView.vue') },
   { path: '/cameras', component: () => import('./views/CamerasView.vue') },
   { path: '/detections', component: () => import('./views/DetectionsView.vue') },
   { path: '/alerts', component: () => import('./views/AlertsView.vue') },
   { path: '/ask', component: () => import('./views/AskView.vue') },
-  { path: '/:pathMatch(.*)*', redirect: '/devices' },
+  { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
 ]
 
 // createWebHistory, not hash mode: nginx needs `try_files $uri /index.html`
@@ -29,13 +30,13 @@ router.beforeEach((to) => {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
   if (to.path === '/login' && authed) {
-    return '/devices'
+    return '/dashboard'
   }
   // Same reasoning: the nav link is hidden for non-admins anyway, this just
   // covers someone typing the URL directly. /api/auth/users itself is the
   // real gate.
   if (to.meta.adminOnly && !isAdmin.value) {
-    return '/devices'
+    return '/dashboard'
   }
   return true
 })

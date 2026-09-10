@@ -2,9 +2,12 @@
   "app": {
     "name": "MQ-AI",
     "tagline": "Surveillance agricole",
-    "language": "Langue"
+    "language": "Langue",
+    "hideSidebar": "Masquer le menu",
+    "showSidebar": "Afficher le menu"
   },
   "nav": {
+    "dashboard": "Tableau de bord",
     "devices": "Appareils",
     "cameras": "Caméras",
     "detections": "Détections",
@@ -208,5 +211,21 @@
     "resetPassword": "Réinitialiser le mot de passe",
     "newPassword": "Nouveau mot de passe",
     "confirmDelete": "Supprimer {name} ? Cette action est irréversible."
+  },
+  "dashboard": {
+    "title": "Tableau de bord",
+    "hint": "Un aperçu rapide de toute la plateforme, appareils, caméras, détection et alertes, sans visiter chaque page séparément.",
+    "devicesOnline": "Appareils en ligne",
+    "camerasReachable": "Caméras joignables",
+    "tasksRunning": "Tâches de détection en cours",
+    "modelsAvailable": "Modèles de détection disponibles",
+    "platform": "Plateforme",
+    "alertsOverview": "Alertes",
+    "cameras": "Caméras",
+    "noSnapshot": "Pas encore d'image",
+    "deviceReadings": "Relevés des appareils",
+    "alertsOpen": "{count} en cours",
+    "detect": "Détecter",
+    "recentAlerts": "Alertes récentes"
   }
 }
