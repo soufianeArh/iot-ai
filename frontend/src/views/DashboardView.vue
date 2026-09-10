@@ -24,6 +24,9 @@ function goDetect(cameraId) {
 function goCameraAlerts(cameraId) {
   router.push({ path: '/alerts', query: { camera: cameraId } })
 }
+function goDevice(deviceId) {
+  router.push({ path: '/devices', query: { highlight: deviceId } })
+}
 function goDeviceAlerts(deviceCode) {
   router.push({ path: '/alerts', query: { device: deviceCode } })
 }
@@ -160,39 +163,26 @@ function openShot(src, caption) {
 
   <div class="card">
     <h2>{{ t('dashboard.deviceReadings') }}</h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>{{ t('common.name') }}</th>
-            <th>{{ t('common.status') }}</th>
-            <th>{{ t('devices.properties') }}</th>
-            <th>{{ t('devices.lastSeen') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="d in devices" :key="d.id">
-            <td>
-              {{ d.name }}
-              <button v-if="alertsByDevice[d.deviceCode]" class="pill" :class="alertsByDevice[d.deviceCode].worstSeverity"
-                      type="button" @click="goDeviceAlerts(d.deviceCode)"
-                      :title="t('alerts.title')">
-                {{ t('dashboard.alertsOpen', { count: $n(alertsByDevice[d.deviceCode].count, 'plain') }) }}
-              </button>
-            </td>
-            <td><span class="pill" :class="d.status === 'ONLINE' ? 'ok' : 'bad'">{{ d.status }}</span></td>
-            <td v-if="deviceReadings[d.id]">
-              <code class="mono">{{ deviceReadings[d.id].key }}</code> = <b>{{ deviceReadings[d.id].value }}</b>
-            </td>
-            <td v-else class="hint">{{ t('devices.noProperties') }}</td>
-            <td>{{ deviceReadings[d.id] ? fmtTime(deviceReadings[d.id].recordedAt, locale) : t('common.never') }}</td>
-          </tr>
-          <tr v-if="!devices.length && !loading">
-            <td colspan="4" class="hint">{{ t('common.none') }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="grid">
+      <div v-for="d in devices" :key="d.id" class="device-card" @click="goDevice(d.id)">
+        <div class="dev-head">
+          <strong>{{ d.name }}</strong>
+          <span class="pill" :class="d.status === 'ONLINE' ? 'ok' : 'bad'">{{ d.status }}</span>
+        </div>
+        <div v-if="deviceReadings[d.id]">
+          <code class="mono">{{ deviceReadings[d.id].key }}</code> = <b>{{ deviceReadings[d.id].value }}</b>
+        </div>
+        <div v-else class="hint">{{ t('devices.noProperties') }}</div>
+        <div class="hint">
+          {{ deviceReadings[d.id] ? fmtTime(deviceReadings[d.id].recordedAt, locale) : t('common.never') }}
+        </div>
+        <button v-if="alertsByDevice[d.deviceCode]" class="pill dev-alert" :class="alertsByDevice[d.deviceCode].worstSeverity"
+                type="button" @click.stop="goDeviceAlerts(d.deviceCode)" :title="t('alerts.title')">
+          {{ t('dashboard.alertsOpen', { count: $n(alertsByDevice[d.deviceCode].count, 'plain') }) }}
+        </button>
+      </div>
     </div>
+    <p v-if="!devices.length && !loading" class="hint">{{ t('common.none') }}</p>
   </div>
 
   <div class="card">
@@ -251,16 +241,18 @@ function openShot(src, caption) {
 </template>
 
 <style scoped>
-/* The open-alerts badge is a button (it navigates to the filtered Alerts
-   page), so it needs the plain button chrome stripped back to a pill. */
+/* The open-alerts badge navigates to the filtered Alerts page, so it's a
+   real button. Keep the pill's severity colours, but a border in that same
+   colour (currentColor) and a hover so it reads as clickable, not a label. */
 button.pill {
-  border: none;
-  padding: .1rem .5rem;
+  padding: .14rem .55rem;
   font: inherit;
   font-size: .78rem;
   font-weight: 600;
   cursor: pointer;
+  border: 1px solid currentColor;
 }
+button.pill:hover { filter: brightness(0.95); }
 
 /* A stat inside a card, not a card itself, so no nested card chrome. The
    page-ground background sets it apart from the white card behind it. */
@@ -299,4 +291,19 @@ button.pill {
 .cam-meta { display: flex; flex-direction: column; gap: .3rem; }
 .cam-actions { margin-top: auto; }
 .cam-actions button { flex: 1; }
+
+.device-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .7rem;
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  cursor: pointer;
+}
+.device-card:hover { border-color: var(--brand-500); }
+.dev-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+/* the alert badge sits on its own line, not stretched across the card */
+.dev-alert { align-self: flex-start; }
 </style>

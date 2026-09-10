@@ -1,11 +1,19 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { api } from '../api'
 import { usePoll, fmtTime } from '../usePoll'
 import { severityText as severityTextRaw } from '../i18n/severity'
 import TimeSeriesChart from '../components/TimeSeriesChart.vue'
 import { canWrite } from '../auth'
+import { useRowHighlight } from '../useRowHighlight'
+
+const route = useRoute()
+
+// ?highlight=<id> from a dashboard device card: flash that row and scroll to
+// it, then let it fade.
+const { highlightId } = useRowHighlight('dev-row-')
 
 const { t, locale } = useI18n()
 const severityText = (sev) => severityTextRaw(sev, t)
@@ -23,8 +31,10 @@ const rules = ref([])
 const unregistered = ref([]) // deviceCode/productKey pairs seen but not registered
 
 // The device the dashboard focuses on, one at a time: thresholds only make
-// sense against the specific device they apply to.
-const selectedId = ref(null)
+// sense against the specific device they apply to. Arriving from a dashboard
+// device card (?highlight=<id>) pre-selects it, so the detail panel and
+// chart show that device straight away rather than whatever was last picked.
+const selectedId = ref(Number(route.query.highlight) || null)
 
 const selected = computed(() =>
   devices.value.find((d) => d.id === selectedId.value) || null)
@@ -112,6 +122,16 @@ async function loadHistory() {
 
 onMounted(async () => {
   try { rules.value = await api.rules() } catch { rules.value = [] }
+})
+
+// Navigating here with a new ?highlight= while already on the page (e.g. a
+// second dashboard card) re-points the detail panel too, not just the flash.
+watch(() => route.query.highlight, (raw) => {
+  const id = Number(raw)
+  if (id && devices.value.some((d) => d.id === id)) {
+    selectedId.value = id
+    loadHistory()
+  }
 })
 
 // Topic format is iot/{productKey}/{deviceCode}/properties (see
@@ -310,7 +330,8 @@ function latest(device, key) {
         </thead>
         <tbody>
           <tr v-for="d in devices" :key="d.id"
-              class="pick" :class="{ active: d.id === selectedId }"
+              :id="'dev-row-' + d.id"
+              class="pick" :class="{ active: d.id === selectedId, 'row-flash': d.id === highlightId }"
               @click="selectDevice(d)">
             <td>{{ d.name }}</td>
             <td><code class="mono">{{ d.deviceCode }}</code></td>
