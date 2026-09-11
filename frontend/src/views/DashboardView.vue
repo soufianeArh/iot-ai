@@ -47,7 +47,7 @@ const recentAlerts = ref([])
 const openCounts = ref({ byCamera: {}, byDevice: {} })
 
 const { error, loading, refresh } = usePoll(async () => {
-  const [d, c, tk, m, s, a, counts, dets, z] = await Promise.all([
+  const [d, c, tk, m, s, a, counts, z] = await Promise.all([
     api.devices(),
     api.cameras(),
     api.tasks(),
@@ -57,9 +57,6 @@ const { error, loading, refresh } = usePoll(async () => {
     // Real per-camera / per-device open counts and worst severity, computed
     // server side over every unresolved alert, not a capped page of them.
     api.openAlertCounts(),
-    // Wide enough to likely cover one recent frame per camera, this is a
-    // summary, not the full history the Detections page already shows.
-    api.detections({ limit: 100 }),
     api.zones().catch(() => []),
   ])
   devices.value = d
@@ -71,15 +68,19 @@ const { error, loading, refresh } = usePoll(async () => {
   openCounts.value = counts
   zones.value = z
 
-  // Keyed by camera, not by "is a task running right now": a camera keeps
-  // showing its last known picture even between analysis runs, rather than
-  // this section going blank the moment nothing happens to be active.
-  const shots = {}
-  for (const det of dets) {
-    if (!det.snapshotUrl || shots[det.cameraId]) continue
-    shots[det.cameraId] = det
-  }
-  cameraShots.value = shots
+  // Latest frame per camera, fetched one camera at a time: a single shared
+  // page of recent detections gets swamped by whichever camera is being
+  // analysed most, so a quiet camera's last picture drops off it even though
+  // the snapshot still exists. A small `limit` per camera in case the very
+  // newest row has no snapshot. Keyed by camera, not by "task running now",
+  // so a camera keeps its last known picture between analysis runs.
+  const shotEntries = await Promise.all(c.map(async (camera) => {
+    try {
+      const rows = await api.detections({ cameraId: camera.id, limit: 8 })
+      return [camera.id, rows.find((det) => det.snapshotUrl) || null]
+    } catch { return [camera.id, null] }
+  }))
+  cameraShots.value = Object.fromEntries(shotEntries.filter(([, det]) => det))
 
   // One row per device: whichever property it reported most recently, not
   // every property, this is a glance summary, not the full Devices page.
