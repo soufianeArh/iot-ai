@@ -72,9 +72,16 @@ async function onLogout() {
 
       <div class="sidebar-spacer"></div>
 
-      <div v-if="session" class="row user-box">
-        <RouterLink to="/profile" class="user-name">{{ session.displayName }}</RouterLink>
-        <span class="pill role-badge">{{ roleLabel(session.role) }}</span>
+      <div v-if="session" class="user-box">
+        <RouterLink to="/profile" class="profile-chip" :title="t('profile.title')">
+          <svg class="user-icon" viewBox="0 0 24 24" width="15" height="15" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>
+          </svg>
+          <span class="user-name">{{ session.displayName }}</span>
+          <span class="pill role-badge">{{ roleLabel(session.role) }}</span>
+        </RouterLink>
         <button class="ghost" type="button" @click="onLogout">{{ t('auth.signOut') }}</button>
       </div>
 
@@ -136,9 +143,37 @@ async function onLogout() {
 }
 .lang select option { color: #16202c; }
 
-.user-box { color: #cfe0f5; font-size: .85rem; padding: 0 var(--gap); flex-wrap: wrap; }
-.user-name { color: #fff; text-decoration: none; }
-.user-name:hover { text-decoration: underline; }
+.user-box {
+  color: #cfe0f5;
+  font-size: .85rem;
+  padding: 0 var(--gap);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .4rem;
+}
+
+/* The name opens the profile page, so it needs to read as a control, not
+   just text. Same bordered, hover-lit treatment as the Sign out button
+   below it, plus a person icon. */
+.profile-chip {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  max-width: 100%;
+  padding: .35rem .55rem;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: var(--radius);
+  color: #fff;
+  text-decoration: none;
+}
+.profile-chip:hover {
+  background: rgba(255, 255, 255, .12);
+  border-color: rgba(255, 255, 255, .4);
+}
+.profile-chip .user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-icon { flex-shrink: 0; opacity: .85; }
+
 .user-box .ghost {
   border-color: rgba(255, 255, 255, .35);
   color: #fff;

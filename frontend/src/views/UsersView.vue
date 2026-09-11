@@ -144,9 +144,9 @@ async function removeUser(user) {
             <td>{{ fmtTime(u.createdAt, locale) }}</td>
             <td>
               <div class="row">
-                <input v-model="resetPasswords[u.id]" type="password" class="ltr"
-                       autocomplete="new-password" :placeholder="t('users.newPassword')"
-                       style="width:auto">
+                <PasswordField v-model="resetPasswords[u.id]" bare
+                               autocomplete="new-password"
+                               :placeholder="t('users.newPassword')" />
                 <button class="ghost" type="button" :disabled="!resetPasswords[u.id]"
                         @click="resetPassword(u)">
                   {{ t('common.save') }}
