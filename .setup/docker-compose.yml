@@ -1,9 +1,8 @@
 services:
-  # PostgresSQL Server
   PostgresSQL:
     image: postgres:18
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
+    # every service pins this: a shared host's nvidia default runtime would hijack it otherwise
     runtime: runc
     ports:
       - "0.0.0.0:5434:5432"
@@ -22,11 +21,9 @@ services:
       start_period: 30s
     networks:
       - easyaiot-network
-  # Redis Server
   Redis:
     image: redis:7.4.8
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     ports:
       - "0.0.0.0:6379:6379"
@@ -58,7 +55,6 @@ services:
   EMQX:
     image: emqx/emqx:5.8.7
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     ports:
       - "1883:1883"    # MQTT
@@ -80,12 +76,11 @@ services:
     networks:
       - easyaiot-network
 
-  # Device Service (Spring Boot) - built from ../device-service
+  # Device Service (Spring Boot)
   device-service:
     build:
       context: ../device-service
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -101,7 +96,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
       - MQTT_BROKER_URL=tcp://EMQX:1883
       - JWT_SECRET=${JWT_SECRET}
-      # Step 5: ships audit rows (device + zone writes) to auth-service.
+      # ships audit rows (device + zone writes) to auth-service
       - AUTH_SERVICE_URL=http://auth-service:8080
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP || exit 1"]
@@ -112,9 +107,8 @@ services:
     networks:
       - easyaiot-network
 
-  # auth-service: users, login, JWT issuance. Its own service on purpose,
-  # not folded into device-service, since RBAC and audit logging land here
-  # next and that's a different domain than devices.
+  # auth-service: users, login, JWT issuance, audit log. Its own service,
+  # not folded into device-service, a different domain than devices.
   auth-service:
     build:
       context: ../auth-service
@@ -143,7 +137,6 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     volumes:
       - ../media/mediamtx.yml:/mediamtx.yml:ro
@@ -164,7 +157,6 @@ services:
     build:
       context: ../video-service
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -176,7 +168,7 @@ services:
       - DEVICE_SERVICE_URL=http://device-service:8080
       - MEDIA_SERVER_API=http://mediamtx:9997
       - JWT_SECRET=${JWT_SECRET}
-      # Step 5: ships audit rows (camera writes) to auth-service.
+      # ships audit rows (camera writes) to auth-service
       - AUTH_SERVICE_URL=http://auth-service:8080
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:6000/video/health >/dev/null || exit 1"]
@@ -194,7 +186,6 @@ services:
     build:
       context: ../sample-device
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       EMQX:
@@ -217,7 +208,6 @@ services:
     build:
       context: ../sample-device
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       EMQX:
@@ -240,7 +230,6 @@ services:
   sample-camera-rtsp:
     image: bluenviron/mediamtx:latest
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     expose:
       - "8554"
@@ -255,7 +244,6 @@ services:
     build:
       context: ../sample-camera
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       - sample-camera-rtsp
@@ -279,7 +267,6 @@ services:
     build:
       context: ../sample-camera
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       - sample-camera-rtsp
@@ -296,7 +283,6 @@ services:
     build:
       context: ../sample-camera
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       - sample-camera-rtsp
@@ -315,7 +301,6 @@ services:
     # Opt-in only: this host can't run a local model alongside the rest of
     # the stack, so chat defaults to a hosted API instead.
     restart: "no"
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     expose:
       - "11434"
@@ -361,7 +346,6 @@ services:
     build:
       context: ../ai-service
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -372,7 +356,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@PostgresSQL:5432/${POSTGRES_DB}
       - JWT_SECRET=${JWT_SECRET}
       - VIDEO_SERVICE_URL=http://video-service:6000
-      # Step 5: ships audit rows (rule writes, alert acks) to auth-service.
+      # ships audit rows (rule writes, alert acks) to auth-service
       - AUTH_SERVICE_URL=http://auth-service:8080
       - MEDIA_RTSP_BASE=rtsp://mediamtx:8554
       - SNAPSHOT_DIR=/snapshots
@@ -428,7 +412,6 @@ services:
     build:
       context: ../ops
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       PostgresSQL:
@@ -455,7 +438,6 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: always
-    # pinned so a shared host's nvidia default runtime does not hijack this
     runtime: runc
     depends_on:
       device-service:

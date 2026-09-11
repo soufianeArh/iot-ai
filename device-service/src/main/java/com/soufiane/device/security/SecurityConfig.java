@@ -11,11 +11,10 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-// Introduced in step 2, this service had no auth at all before: nginx just
-// proxied straight through. Same rule as video-service and ai-service's
-// Python middleware: any authenticated role can read, a write needs ADMIN
-// or OPERATOR, SERVICE (ai-service's own calls here) is trusted regardless
-// of method since it isn't a human role.
+// Same rule as video-service and ai-service's Python middleware: any
+// authenticated role can read, a write needs ADMIN or OPERATOR, SERVICE
+// (ai-service's own calls here) is trusted regardless of method since it
+// isn't a human role.
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -41,9 +40,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Docker's healthcheck has no token, same as every other service here.
                         .requestMatchers("/actuator/health").permitAll()
-                        // Zones: anyone may read them (the device form and filters need
-                        // the list), but only ADMIN creates, renames or deletes one.
-                        // Assigning a device to a zone is a device write, still OPERATOR.
+                        // anyone reads zones, only ADMIN creates/renames/deletes one;
+                        // assigning a device to a zone is a device write, still OPERATOR
                         .requestMatchers(HttpMethod.GET, "/api/zones/**").authenticated()
                         .requestMatchers("/api/zones/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/**").authenticated()

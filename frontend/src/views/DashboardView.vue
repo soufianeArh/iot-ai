@@ -68,12 +68,9 @@ const { error, loading, refresh } = usePoll(async () => {
   openCounts.value = counts
   zones.value = z
 
-  // Latest frame per camera, fetched one camera at a time: a single shared
-  // page of recent detections gets swamped by whichever camera is being
-  // analysed most, so a quiet camera's last picture drops off it even though
-  // the snapshot still exists. A small `limit` per camera in case the very
-  // newest row has no snapshot. Keyed by camera, not by "task running now",
-  // so a camera keeps its last known picture between analysis runs.
+  // Latest frame per camera, fetched one at a time: a shared page of recent
+  // detections gets swamped by whichever camera is analysed most, dropping a
+  // quiet camera's last picture even though it still exists.
   const shotEntries = await Promise.all(c.map(async (camera) => {
     try {
       const rows = await api.detections({ cameraId: camera.id, limit: 8 })

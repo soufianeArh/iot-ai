@@ -18,7 +18,7 @@ public record DeviceUpdateRequest(
         @NotNull(message = "status is required")
         DeviceStatus status,
 
-        // step 4, all optional. null clears the field / unassigns the zone.
+        // optional, null clears the field / unassigns the zone
         @Size(max = 500) String description,
         @Size(max = 255) String location,
         Long zoneId

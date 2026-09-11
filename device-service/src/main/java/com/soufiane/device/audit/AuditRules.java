@@ -5,9 +5,8 @@ import java.util.Map;
 import java.util.Set;
 
 // Pure functions that turn "an HTTP request just finished" into an audit row
-// or into nothing. A copy of auth-service's com.soufiane.auth.audit.AuditRules:
-// there is no shared module between the services, and the rules are small and
-// stable enough that a copy is cheaper than a library. Keep the two in step.
+// or into nothing. A copy of auth-service's AuditRules, not shared, keep the
+// two in step.
 public final class AuditRules {
 
     private AuditRules() {

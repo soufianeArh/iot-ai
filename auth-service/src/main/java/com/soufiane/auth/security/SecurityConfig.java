@@ -49,9 +49,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(restAuthEntryPoint)
                         .accessDeniedHandler(restAccessDeniedHandler))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                // After JwtAuthFilter so the security context is populated, and
-                // inside the chain so it is still populated (and the status
-                // final) when the request unwinds back through here.
+                // after JwtAuthFilter so the security context is still set when it runs
                 .addFilterAfter(new AuditFilter(auditService), JwtAuthFilter.class);
         return http.build();
     }

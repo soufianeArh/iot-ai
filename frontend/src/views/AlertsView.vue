@@ -182,17 +182,15 @@ async function ack(alert) {
 
 const severityText = (sev) => severityTextRaw(sev, t)
 
-// deviceCode -> zone name, from the device list the poll already fetches, so
-// a device alert row can show which plot the sensor sits on. No backend
-// change: ai-service doesn't know about zones, device-service owns them.
+// deviceCode -> zone name, from the device list already fetched by the poll,
+// so a device alert row can show which plot the sensor sits on.
 const zoneByDeviceCode = computed(() => {
   const m = {}
   for (const d of devices.value) if (d.deviceCode) m[d.deviceCode] = d.zoneName
   return m
 })
 
-// The device filter dropdown, grouped by zone: picking a sensor is also how
-// you surface that sensor's alerts with its zone shown on each row.
+// The device filter dropdown, grouped by zone.
 const devicesByZone = computed(() => {
   const groups = new Map()
   for (const d of devices.value) {

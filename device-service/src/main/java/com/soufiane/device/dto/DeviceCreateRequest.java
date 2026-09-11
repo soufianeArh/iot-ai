@@ -20,7 +20,6 @@ public record DeviceCreateRequest(
 
         DeviceStatus status,
 
-        // step 4, all optional
         @Size(max = 500) String description,
         @Size(max = 255) String location,
         Long zoneId

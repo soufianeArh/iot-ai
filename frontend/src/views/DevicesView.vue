@@ -24,9 +24,8 @@ const form = ref({ name: '', deviceCode: '', productKey: '', description: '', lo
 const busy = ref(false)
 const formError = ref('')
 
-// 'all' shows every device, a zone id (as a string) filters to that zone,
-// '' filters to devices with no zone at all. Seeded from ?zone= so a
-// dashboard zone card lands here already filtered (?zone=none for unassigned).
+// 'all', a zone id, or '' for unassigned. Seeded from ?zone= (?zone=none for
+// unassigned) so a dashboard zone card lands here already filtered.
 function zoneFilterFromRoute() {
   const q = route.query.zone
   if (q === 'none') return ''
@@ -35,11 +34,9 @@ function zoneFilterFromRoute() {
 }
 const zoneFilter = ref(zoneFilterFromRoute())
 
-// Arriving from a dashboard zone card, jump straight to the (already
-// filtered) device list rather than the top of the page. The poll fills in
-// the selected-sensor card and the history chart above the list a beat
-// later, which pushes the list down, so re-issue the scroll a few times
-// until the layout has settled rather than once at a fixed delay.
+// Jumps to the (already filtered) device list from a dashboard zone card.
+// The selected-sensor card and chart load in above it a beat later and push
+// it down, so this re-issues the scroll until the layout settles.
 function scrollToList() {
   let tries = 0
   let lastTop = null
@@ -68,10 +65,8 @@ const history = ref({})      // device id -> [{t, v}]
 const rules = ref([])
 const unregistered = ref([]) // deviceCode/productKey pairs seen but not registered
 
-// The device the dashboard focuses on, one at a time: thresholds only make
-// sense against the specific device they apply to. Arriving from a dashboard
-// device card (?highlight=<id>) pre-selects it, so the detail panel and
-// chart show that device straight away rather than whatever was last picked.
+// One device at a time, thresholds only make sense against the device they
+// apply to. ?highlight=<id> from a dashboard card pre-selects it.
 const selectedId = ref(Number(route.query.highlight) || null)
 
 const selected = computed(() =>

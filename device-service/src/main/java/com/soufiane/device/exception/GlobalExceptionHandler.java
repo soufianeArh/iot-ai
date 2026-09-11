@@ -19,8 +19,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiError.of(404, "Not Found", ex.getMessage()));
     }
-//device duplicate during creation
-    //device duplace in mqtt saved as unregisterd (not this error)
+    // a duplicate seen over MQTT is saved as unregistered instead, not this
     @ExceptionHandler({DuplicateDeviceCodeException.class, DuplicateZoneNameException.class})
     public ResponseEntity<ApiError> handleDuplicate(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

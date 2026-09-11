@@ -15,14 +15,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-// The generic audit hook. Wired into the security chain right after
-// JwtAuthFilter (see SecurityConfig), so on the way back out the security
-// context is still populated and the response status is final. Writes
-// straight to AuditService since this is auth-service's own database.
-//
-// Deliberately not a @Component: SecurityConfig constructs it and adds it to
-// the chain itself. That also means the servlet container never registers it
-// as a plain outer filter, so it cannot run (and double log) twice.
+// Sits right after JwtAuthFilter in the security chain (see SecurityConfig),
+// so the security context and final status are both still readable on the
+// way back out. Writes straight to AuditService, this is auth-service's own
+// database. Not a @Component on purpose: SecurityConfig builds it itself so
+// it can't also get registered as a plain filter and double log.
 public class AuditFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(AuditFilter.class);

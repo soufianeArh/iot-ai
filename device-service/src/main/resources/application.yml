@@ -23,13 +23,12 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
-# Step 2: verifies the JWT auth-service issues, must match its secret exactly
+# Verifies the JWT auth-service issues, must match its secret exactly
 jwt:
   secret: dev-only-secret-change-me-before-anything-real-CHANGE-ME
 
-# Step 5: where to ship audit rows. Overridden by AUTH_SERVICE_URL in the
-# compose file; blank here so a bare local run without the full stack just
-# skips reporting rather than erroring on every write.
+# Where to ship audit rows, overridden by AUTH_SERVICE_URL in compose; blank
+# here so a bare local run without the full stack just skips reporting.
 audit:
   auth-service-url: ${AUTH_SERVICE_URL:}
 

@@ -17,10 +17,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-// Reads Authorization: Bearer <token>, and if it's valid, sets the
-// SecurityContext so @PreAuthorize / SecurityConfig rules below can see who's
-// asking. Leaves the context empty on anything missing or invalid instead of
-// rejecting outright, that decision belongs to SecurityConfig's authorizeHttpRequests.
+// Reads Authorization: Bearer <token> and sets the SecurityContext if it's
+// valid. Leaves it empty on anything missing or invalid rather than
+// rejecting outright, that's SecurityConfig's call to make.
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 

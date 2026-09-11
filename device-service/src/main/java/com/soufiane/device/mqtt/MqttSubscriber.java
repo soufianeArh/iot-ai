@@ -16,8 +16,8 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
-//MqttSubscriber connects to EMQX (tcp://EMQX:1883,)
-//tcp pipe mqtt protocol
+// Connects to the broker configured in MqttProperties (EMQX in this stack)
+// and forwards every message to DeviceIngestService.
 @Component
 public class MqttSubscriber implements MqttCallbackExtended {
 
@@ -60,8 +60,7 @@ public class MqttSubscriber implements MqttCallbackExtended {
         }
     }
 
-    //Fires on first connect AND on every automatic reconnect
-    // means: so resubscribe here.
+    // Fires on first connect and on every automatic reconnect, so resubscribe here.
     @Override
     public void connectComplete(boolean reconnect, String serverUri) {
         try {

@@ -14,10 +14,9 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 
-// Signs and verifies the token every service in the stack trusts. The
-// secret (JWT_SECRET) has to be identical wherever a token gets verified,
-// not just here where it's issued, video-service and ai-service check
-// tokens with the same secret rather than calling back here per request.
+// Signs and verifies the token every service in the stack trusts. JWT_SECRET
+// has to be identical everywhere, video-service and ai-service verify with
+// the same secret rather than calling back here per request.
 @Service
 public class JwtService {
 

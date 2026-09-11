@@ -31,10 +31,9 @@ public class AuthController {
         this.auditService = auditService;
     }
 
-    // Login and logout are audited here, not by the generic filter: on a
-    // successful login there is still no security context to read the actor
-    // from, and a failed attempt needs to record the username that was
-    // tried. LOGIN / LOGOUT also read better than the filter's generic CREATE.
+    // Audited here, not by the generic filter: there's no security context
+    // yet on a successful login, and a failed attempt still needs the
+    // username that was tried.
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest http) {
         String ip = AuditFilter.clientIp(http);
@@ -50,10 +49,8 @@ public class AuthController {
         }
     }
 
-    // The token is stateless and short lived, so there's nothing server side
-    // to invalidate yet. This exists so the frontend has one clear endpoint
-    // to call when discarding it, and so a real revocation list can slot in
-    // here later without the frontend needing to change.
+    // Nothing to invalidate server side yet, the token is stateless. Gives
+    // the frontend one clear endpoint to call when it discards it.
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void logout(Authentication authentication, HttpServletRequest http) {

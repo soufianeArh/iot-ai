@@ -11,16 +11,15 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-// Spring Security's own default here is Http403ForbiddenEntryPoint, which
-// answers "no token at all" the same way as "wrong role", 403. This makes
-// the two cases distinct: 401 for not authenticated, 403 stays reserved for
-// authenticated-but-not-allowed once RBAC actually enforces roles.
+// Spring's default here (Http403ForbiddenEntryPoint) answers "no token at
+// all" the same way as "wrong role", 403. This keeps them distinct: 401 for
+// not authenticated, 403 for authenticated but not allowed.
 @Component
 public class RestAuthEntryPoint implements AuthenticationEntryPoint {
 
-    // Spring's own configured mapper, not `new ObjectMapper()`: a fresh one
+    // Spring's configured mapper, not `new ObjectMapper()`: a fresh one
     // writes OffsetDateTime as a raw epoch number instead of the ISO string
-    // every other response here uses, an easy inconsistency to miss.
+    // everything else here uses.
     private final ObjectMapper objectMapper;
 
     public RestAuthEntryPoint(ObjectMapper objectMapper) {

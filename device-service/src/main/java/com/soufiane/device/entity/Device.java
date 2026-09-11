@@ -33,9 +33,8 @@ public class Device {
     @Column(name = "status", nullable = false, length = 16)
     private DeviceStatus status;
 
-    // Step 4 attributes, all optional. zoneId is a plain column, not a
-    // @ManyToOne: the device list resolves zone names from one findAll of
-    // zones rather than a join per row.
+    // All optional. zoneId is a plain column, not a @ManyToOne: the device
+    // list resolves zone names from one findAll of zones, not a join per row.
     @Column(name = "description", length = 500)
     private String description;
 

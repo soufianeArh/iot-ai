@@ -27,8 +27,6 @@ public class User {
     @Column(name = "display_name", nullable = false, length = 128)
     private String displayName;
 
-    // no enforcement yet, RBAC lands in step 2. Every seeded user is ADMIN
-    // for now so the column exists and isn't a later migration surprise.
     @Column(name = "role", nullable = false, length = 32)
     private String role;
 

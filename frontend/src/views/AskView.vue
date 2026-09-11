@@ -13,7 +13,7 @@ const health = ref(null)
 const busy = ref(false)
 const threadEl = ref(null)
 
-const EXAMPLE_KEYS = ['ok', 'alerts', 'sensors', 'tasks', 'whyNoFire', 'fireToday',
+const EXAMPLE_KEYS = ['ok', 'alerts', 'sensors', 'zone', 'tasks', 'whyNoFire', 'fireToday',
                       'animals', 'people', 'working', 'rules']
 
 onMounted(async () => {

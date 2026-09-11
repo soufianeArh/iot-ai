@@ -11,10 +11,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-// Spring's own default here writes a bare 403 with no body. This matches the
-// ApiError shape every other error response already uses, same reasoning as
-// RestAuthEntryPoint for the 401 case: authenticated but not allowed, versus
-// not authenticated at all.
+// Spring's default here is a bare 403 with no body. This matches the same
+// ApiError shape as everything else, and keeps 403 (wrong role) distinct
+// from RestAuthEntryPoint's 401 (no token at all).
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
 

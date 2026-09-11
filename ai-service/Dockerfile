@@ -1,9 +1,8 @@
 FROM python:3.12-slim
 
-# for/sed loop check for possible debin source ( sources.list vs sources.list.d/debian.sources
-# apt-get update + install pulls ffmpeg, curl, libgl1, libglib2.0-0
-# from the Aliyun mirror instead of Debian's own servers.
-#rm -rf /var/lib/apt/lists/* at the end clears the downloaded package index to keep the image layer small
+# Regional mirror: Debian's own servers stall badly from some deploy
+# targets, so this rewrites both possible source file locations to Aliyun
+# before installing ffmpeg, curl and the two OpenCV needs (libgl1, libglib2.0-0).
 RUN for f in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
       [ -f "$f" ] && sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com|g' "$f"; \
     done; \
@@ -17,20 +16,16 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Install the CPU-only build of torch first. (no CUDA/GPU code bundled in)
-#PyTorch is the neural-network engine underneath YOLO;
-# ultralytics (the YOLO library) is written using PyTorch's tensors and layers
+# CPU-only torch first, no CUDA bundled in, then ultralytics (YOLO) itself
+# from requirements.txt.
 RUN pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cpu \
       torch==2.5.1 torchvision==0.20.1
 
-#line 8: ultralytics==8.3.40. That's the YOLO library itself.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# import yolo class and .pt weights
-# It's purely caching: pre-downloading the file once at build time  \
-# so the app code never has
+# Pre-downloads the default weights at build time so the running app never has to.
 RUN python -c "from ultralytics import YOLO; YOLO('yolov8n.pt')" \
     && ls -l /app/yolov8n.pt
 
@@ -38,10 +33,6 @@ COPY . .
 
 EXPOSE 7000
 
-# ONE worker on purpose: 4threads
-# 120 matches llm_client.py's own LLM_TIMEOUT_SECONDS
-# Gunicorn's master process expects each worker to check in periodically to
-# prove it's alive. If a worker goes silent for longer than --timeout
-# seconds (still stuck processing one request), the master assumes it's
-# dead, sends SIGKILL, and spawns a fresh replacement worker process.
+# One worker, four threads. Timeout (120) matches llm_client.py's own
+# LLM_TIMEOUT_SECONDS, a worker stuck past it gets killed and replaced.
 CMD ["gunicorn", "--bind", "0.0.0.0:7000", "--workers", "1", "--threads", "4", "--timeout", "120", "run:app"]

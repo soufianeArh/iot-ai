@@ -1,11 +1,11 @@
 FROM python:3.12-slim
 
-# ffmpeg brings ffprobe, which is what validates RTSP streams.
-# EasyAIoT's VIDEO/Dockerfile starts FROM pytorch/pytorch:...cuda12.8-devel (multi-GB)
-# because it also runs inference. Phase 5 only probes, so slim + ffmpeg is enough.
-# Regional mirror: deb.debian.org measured ~15-20KB/s from one deploy
-# target, turning a routine apt-get into an hour-plus stall. This only
-# rewrites sources inside THIS image's own build - nothing on any host.
+# ffmpeg brings ffprobe, which is what validates RTSP streams here. This
+# service only probes, it doesn't run inference, so slim + ffmpeg is enough,
+# no need for a multi-GB CUDA base image.
+# Regional mirror: deb.debian.org measured ~15-20KB/s from one deploy target,
+# turning apt-get into an hour-plus stall. Only rewrites sources inside this
+# image's own build, nothing on the host.
 RUN for f in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
       [ -f "$f" ] && sed -i 's|deb.debian.org|mirrors.aliyun.com|g; s|security.debian.org|mirrors.aliyun.com|g' "$f"; \
     done; \

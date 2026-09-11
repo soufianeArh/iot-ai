@@ -9,11 +9,9 @@ import javax.crypto.SecretKey;
 import java.time.Instant;
 import java.util.Date;
 
-// Mints the short lived SERVICE token this service uses to call auth-service's
-// /internal/audit. Same idea as ai-service's service_headers() in Python:
-// device-service is calling another backend directly, not on behalf of a
-// logged in user, so there is no user token to forward. Signed with the same
-// JWT_SECRET (HS512, implied by key length) so auth-service verifies it.
+// Mints the short lived SERVICE token used to call auth-service's
+// /internal/audit, same idea as ai-service's service_headers() in Python:
+// there's no user token to forward for a call the service makes on its own.
 @Component
 public class ServiceTokenIssuer {
 

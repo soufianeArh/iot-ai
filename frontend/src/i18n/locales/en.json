@@ -177,6 +177,7 @@
       "ok": "Is everything ok?",
       "alerts": "Any alerts I should look at?",
       "sensors": "Has any sensor reading crossed its threshold?",
+      "zone": "Which sensors are in each zone, and how are they doing?",
       "tasks": "Which cameras are being analysed, and with which models?",
       "whyNoFire": "Why is fire not being detected on camera 4?",
       "fireToday": "Have you seen any fire today?",

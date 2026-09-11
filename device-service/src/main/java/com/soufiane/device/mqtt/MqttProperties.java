@@ -2,8 +2,6 @@ package com.soufiane.device.mqtt;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-//@ConfigurationProperties(prefix="mqtt") at boot
-// gets config from application.yml
 @ConfigurationProperties(prefix = "mqtt")
 public class MqttProperties {
 

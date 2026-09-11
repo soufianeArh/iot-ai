@@ -7,8 +7,7 @@ public record DeviceTopic(String productKey, String deviceCode, String action) {
 
     private static final int SEGMENTS = 4;
     private static final String PREFIX = "iot";
-    //iot/farmA/sensor07/properties
-    // into DeviceTopic(productKey="farmA",deviceCode="sensor07", action="properties")
+    // "iot/farmA/sensor07/properties" -> DeviceTopic("farmA", "sensor07", "properties")
     public static Optional<DeviceTopic> parse(String topic) {
         if (topic == null) {
             return Optional.empty();

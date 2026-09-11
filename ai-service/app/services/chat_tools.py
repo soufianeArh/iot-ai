@@ -27,6 +27,7 @@ import requests
 
 from app import db
 from app.models import Alert, AlertRule, Detection, utcnow
+from app.services.auth import service_headers
 
 log = logging.getLogger(__name__)
 
@@ -44,9 +45,10 @@ def _since(minutes: int):
 
 
 def _get(url: str):
-    """GET another service, returning a readable error instead of raising."""
+    """GET another service, returning a readable error instead of raising.
+    Carries a SERVICE token, same as camera_client, both other services require auth now."""
     try:
-        response = requests.get(url, timeout=HTTP_TIMEOUT)
+        response = requests.get(url, headers=service_headers(), timeout=HTTP_TIMEOUT)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as exc:
@@ -122,12 +124,20 @@ def search_alerts(camera_id: int = None, kind: str = None, severity: str = None,
     rows = (query.order_by(Alert.raised_at.desc())
             .limit(min(int(limit), MAX_ROWS)).all())
 
+    # one lookup, only when a device alert is present, to attach each sensor's zone
+    zone_by_code = {}
+    if any(a.device_code for a in rows):
+        devices = _get(f"{DEVICE_SERVICE_URL}/api/devices")
+        if isinstance(devices, list):
+            zone_by_code = {d["deviceCode"]: d.get("zoneName") for d in devices}
+
     def _describe(a: Alert) -> dict:
         if a.device_code:
             # max_confidence holds the READING here, not a 0-1 confidence -
             # calling it that to the model would read as a sensor at 87%
             # confidence, which is meaningless.
             return {"kind": "device", "deviceCode": a.device_code,
+                    "zone": zone_by_code.get(a.device_code),
                     "what": f"{a.label} = {round(a.max_confidence, 2)}",
                     "reading": round(a.max_confidence, 2)}
         return {"kind": "detection", "cameraId": a.camera_id,
@@ -172,7 +182,8 @@ def list_cameras() -> dict:
 
 
 def list_devices() -> dict:
-    """Devices plus their latest reported values. Owned by device-service."""
+    """Devices plus their latest reported values. Owned by device-service.
+    Each may sit in a zone and carry a finer `location`."""
     devices = _get(f"{DEVICE_SERVICE_URL}/api/devices")
     if isinstance(devices, dict):
         return devices
@@ -185,6 +196,8 @@ def list_devices() -> dict:
         out.append({
             "deviceCode": device["deviceCode"], "name": device["name"],
             "status": device["status"],           # ONLINE / OFFLINE, set over MQTT
+            "zone": device.get("zoneName"),        # null = not assigned to any zone
+            "location": device.get("location"),
             "latestValues": latest,
         })
     return {"devices": out}
@@ -246,8 +259,10 @@ def overview() -> dict:
         "mostRecentAlerts": recent.get("alerts", [])[:3],
         "camerasUnreachable": [c["name"] for c in cameras
                                if c.get("status") != "REACHABLE"],
-        "devicesOffline": [d["name"] for d in devices
-                           if d.get("status") != "ONLINE"],
+        "devicesOffline": [
+            f"{d['name']} ({d['zone']})" if d.get("zone") else d["name"]
+            for d in devices if d.get("status") != "ONLINE"
+        ],
         # Camera id AND models: a running task on the wrong weights looks
         # identical to a healthy one until you see which models it holds.
         "analysisRunning": [{"cameraId": t["cameraId"],
@@ -332,10 +347,12 @@ SCHEMAS = [
                             "threshold (a reading that crossed a limit, e.g. "
                             "temperature or soilMoisture). Each row's `kind` field "
                             "says which; a device row has no camera and its number "
-                            "is the reading, not a confidence. Use for 'any alerts', "
+                            "is the reading, not a confidence, and carries the "
+                            "`zone` its sensor sits in. Use for 'any alerts', "
                             "'what needs attention' (acknowledged=false), "
                             "'what fired in the last hour' (since_minutes=60), "
-                            "'any sensor over its limit' (kind=device)."),
+                            "'any sensor over its limit' (kind=device), 'alerts "
+                            "in the north field' (filter the device rows by zone)."),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -375,10 +392,13 @@ SCHEMAS = [
         "type": "function",
         "function": {
             "name": "list_devices",
-            "description": ("IoT devices (sensors), their ONLINE/OFFLINE state and "
-                            "their latest reported values such as temperature and "
-                            "humidity. Use for 'what is the temperature', "
-                            "'which devices are offline'."),
+            "description": ("IoT devices (sensors), their ONLINE/OFFLINE state, "
+                            "their zone (a plot, field or greenhouse) and finer "
+                            "location, and their latest reported values such as "
+                            "temperature and humidity. Use for 'what is the "
+                            "temperature', 'which devices are offline', 'which "
+                            "sensors are in the north field', 'readings in the "
+                            "greenhouse'."),
             "parameters": {"type": "object", "properties": {}},
         },
     },

@@ -4,17 +4,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-// The generic rules that turn "an HTTP request just finished" into an audit
-// row, or into nothing. Kept as pure functions so the servlet filter that
-// uses them stays tiny, and so the same logic is easy to mirror in the
-// other services (device-service has its own copy, the Python services a
-// port of it).
-//
-// Reads are never audited. A handful of writes are skipped because they are
-// not meaningful actions (a health check, starting a stream, the chat
-// endpoint). Login and logout are recorded explicitly by AuthService, not
-// here, because at that point there is no security context to read the
-// actor from.
+// Turns "an HTTP request just finished" into an audit row, or into nothing.
+// Pure functions, mirrored (not shared) in device-service and the Python
+// services. Reads are never audited; login/logout are recorded explicitly
+// by AuthController instead, since there's no security context yet then.
 public final class AuditRules {
 
     private AuditRules() {

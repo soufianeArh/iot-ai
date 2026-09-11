@@ -153,9 +153,8 @@ async function onLogout() {
   gap: .4rem;
 }
 
-/* The name opens the profile page, so it needs to read as a control, not
-   just text. Same bordered, hover-lit treatment as the Sign out button
-   below it, plus a person icon. */
+/* Opens the profile page, so it needs to read as a control, not just text:
+   same bordered, hover-lit treatment as the Sign out button, plus an icon. */
 .profile-chip {
   display: flex;
   align-items: center;

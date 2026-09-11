@@ -1,11 +1,10 @@
 """
 Generic audit hook: after every mutating request, ship one row to
-auth-service's /internal/audit. Reads are never recorded. This is the Python
-port of the Java services' AuditFilter + AuditRules, keep the three in step.
+auth-service's /internal/audit. Reads are never recorded. Python port of the
+Java services' AuditFilter + AuditRules, keep the three in step.
 
-Best effort and off the request path: the POST runs on a small thread pool
-and any failure is swallowed, so a logging problem never affects the
-response the user gets.
+Best effort and off the request path, on a small thread pool, so a logging
+failure never affects the response the user gets.
 """
 import logging
 import os

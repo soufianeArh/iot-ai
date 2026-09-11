@@ -9,9 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 // Ships one audit row to auth-service, off the request thread and best
-// effort: a logging hiccup must never turn into a failed device write. If
-// AUTH_SERVICE_URL is unset (e.g. a local run without the full stack) this
-// quietly does nothing.
+// effort, so a logging hiccup never fails the device write it's auditing.
+// Quietly does nothing if AUTH_SERVICE_URL isn't set.
 @Component
 public class AuditReporter {
 

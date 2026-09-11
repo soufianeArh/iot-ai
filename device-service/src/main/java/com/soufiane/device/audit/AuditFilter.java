@@ -13,10 +13,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-// The generic audit hook. Wired into the security chain right after
-// JwtAuthFilter (see SecurityConfig) so the security context is populated
-// and still readable, and the status final, when the request unwinds back
-// through here. Ships each row to auth-service via AuditReporter.
+// Sits right after JwtAuthFilter in the security chain (see SecurityConfig)
+// so the security context and final status are both still readable on the
+// way back out. Ships each row to auth-service via AuditReporter.
 public class AuditFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(AuditFilter.class);

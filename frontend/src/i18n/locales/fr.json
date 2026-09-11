@@ -177,6 +177,7 @@
       "ok": "Est-ce que tout va bien ?",
       "alerts": "Y a-t-il des alertes à regarder ?",
       "sensors": "Un capteur a-t-il dépassé son seuil ?",
+      "zone": "Quels capteurs sont dans chaque zone, et comment vont-ils ?",
       "tasks": "Quelles caméras sont analysées, et avec quels modèles ?",
       "whyNoFire": "Pourquoi le feu n'est-il pas détecté sur la caméra 4 ?",
       "fireToday": "Avez-vous vu du feu aujourd'hui ?",
