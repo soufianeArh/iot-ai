@@ -34,9 +34,8 @@ function zoneFilterFromRoute() {
 }
 const zoneFilter = ref(zoneFilterFromRoute())
 
-// Jumps to the (already filtered) device list from a dashboard zone card.
-// The selected-sensor card and chart load in above it a beat later and push
-// it down, so this re-issues the scroll until the layout settles.
+// Jumps to the device list from a dashboard zone card
+// stuff above it loads late and pushes it down, so keep rescrolling till it settles
 function scrollToList() {
   let tries = 0
   let lastTop = null
@@ -44,7 +43,7 @@ function scrollToList() {
     const el = document.getElementById('device-list')
     if (el) {
       const top = el.getBoundingClientRect().top
-      // Stop once the list's position has stopped moving (layout settled).
+      // stop once it stops moving
       if (lastTop !== null && Math.abs(top - lastTop) < 2 && Math.abs(top) < 4) return
       lastTop = top
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })

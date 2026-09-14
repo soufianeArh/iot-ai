@@ -30,15 +30,22 @@ function onDeviceFilter(event) {
   router.replace(v ? { path: '/alerts', query: { device: v } } : { path: '/alerts' })
 }
 
-// Arriving from a dashboard badge, jump straight to the raised-alerts list
-// rather than the top of the page (summary, the add-rule form, the rules
-// table all sit above it).
+// Jumps to the raised alerts list from a dashboard badge
+// stuff above it loads late and pushes it down, so keep rescrolling till it settles
 function scrollToList() {
-  nextTick(() => {
-    setTimeout(() => {
-      document.getElementById('raised-alerts')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 100)
-  })
+  let tries = 0
+  let lastTop = null
+  const tick = () => {
+    const el = document.getElementById('raised-alerts')
+    if (el) {
+      const top = el.getBoundingClientRect().top
+      if (lastTop !== null && Math.abs(top - lastTop) < 2 && Math.abs(top) < 4) return
+      lastTop = top
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    if (++tries < 12) setTimeout(tick, 200)
+  }
+  nextTick(tick)
 }
 
 const summary = ref({})

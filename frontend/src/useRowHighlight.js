@@ -15,14 +15,18 @@ export function useRowHighlight(prefix, durationMs = 4000) {
   const highlightId = ref(null)
   let timer = null
 
-  function scrollTo(id, attempt = 0) {
+  function scrollTo(id, attempt = 0, lastTop = null) {
     const el = document.getElementById(prefix + id)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (!el) {
+      // list loads async, row might not exist yet
+      if (attempt < 15) setTimeout(() => scrollTo(id, attempt + 1), 200)
       return
     }
-    // The list is loaded async, so the row may not exist on the first tick.
-    if (attempt < 15) setTimeout(() => scrollTo(id, attempt + 1), 200)
+    const top = el.getBoundingClientRect().top
+    // stuff above the row can load late and push it down, keep rescrolling till it settles
+    if (lastTop !== null && Math.abs(top - lastTop) < 2) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (attempt < 15) setTimeout(() => scrollTo(id, attempt + 1, top), 200)
   }
 
   function apply() {
