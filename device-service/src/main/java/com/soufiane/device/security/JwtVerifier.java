@@ -10,10 +10,10 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Optional;
 
-// Verify only, unlike auth-service's JwtService: this service never logs
+// Verify only: unlike auth-service's JwtService: this service never logs
 // anyone in, it only checks a token someone else (auth-service, or
-// ai-service's own service token) already issued. Same JWT_SECRET, same
-// HS512 (implied by the key length), or nothing here would ever verify.
+// ai-service's own service token) already issued.
+// Same JWT_SECRET, sameHS512 (implied by the key length), or nothing here would ever verify.
 @Component
 public class JwtVerifier {
 

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 // A VIEWER token hits this on any write. Authenticated, just not allowed to
-// do this particular thing, distinct from RestAuthEntryPoint's 401.
+// do this particular thing, distinct from RestAuthEntryPoint's 401
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
 

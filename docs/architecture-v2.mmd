@@ -1,0 +1,105 @@
+%%{init: {'flowchart': {'curve': 'linear', 'nodeSpacing': 60, 'rankSpacing': 110}}}%%
+%% v2: adds auth-service - login, user management, JWT issuance, the audit log.
+%% RBAC itself is not a service call: every service verifies the JWT itself
+%% (shared JWT_SECRET, HS512) and enforces ADMIN / OPERATOR / VIEWER / SERVICE
+%% roles the same way, with no per-request call back to auth-service. Only
+%% login (once, to get the token) and the background audit writes are real
+%% calls, and are the only edges auth-service has below.
+flowchart LR
+    subgraph Clients[" "]
+        browser["Browser (Vue app)"]
+        devices["IoT Devices"]
+        cameras["RTSP Cameras"]
+    end
+
+    subgraph Edge[" "]
+        nginx["nginx (reverse proxy, port 80)"]
+    end
+
+    subgraph Services[" "]
+        device_service["device-service (Java / Spring, port 8080)"]
+        video_service["video-service (Python / Flask, port 6000)"]
+        ai_service["ai-service (port 7000): YOLO detection plus LLM chat"]
+    end
+
+    subgraph Infra[" "]
+        emqx["EMQX (MQTT broker)"]
+        mediamtx["MediaMTX (RTSP in, HLS/WebRTC out)"]
+        llm["LLM endpoint (Groq or Ollama): powers the chat"]
+    end
+
+    subgraph Auth[" "]
+        auth_service["auth-service (Java / Spring, port 8080): login, users, JWT issuance, audit log"]
+    end
+
+    subgraph Data[" "]
+        postgres[("PostgreSQL (public / video / ai / auth schemas)")]
+        snapshots[("snapshots volume")]
+    end
+
+    maintenance["maintenance (retention.py plus backup.py)"]
+
+    browser --> nginx
+    nginx -->|api, actuator| device_service
+    nginx -->|video| video_service
+    nginx -->|ai| ai_service
+    nginx -->|api/auth, once for login| auth_service
+    nginx -.->|hls, whep| mediamtx
+    nginx -.->|static files| snapshots
+
+    devices --> emqx
+    device_service -->|subscribe| emqx
+    device_service --> postgres
+
+    cameras --> mediamtx
+    video_service -->|config API| mediamtx
+    video_service --> postgres
+
+    ai_service -.->|camera lookup| video_service
+    ai_service -->|RTSP pull| mediamtx
+    ai_service -.->|poll rules| device_service
+    ai_service --> llm
+    ai_service --> postgres
+    ai_service -->|writes| snapshots
+
+    maintenance --> postgres
+    maintenance --> snapshots
+
+    device_service -.->|audit| auth_service
+    video_service -.->|audit| auth_service
+    ai_service -.->|audit| auth_service
+    auth_service --> postgres
+
+    classDef client fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a;
+    classDef edge fill:#e5e7eb,stroke:#374151,color:#111827;
+    classDef service fill:#dcfce7,stroke:#15803d,color:#14532d;
+    classDef media fill:#ffedd5,stroke:#c2410c,color:#7c2d12;
+    classDef broker fill:#ede9fe,stroke:#6d28d9,color:#4c1d95;
+    classDef data fill:#cffafe,stroke:#0e7490,color:#164e63;
+    classDef external fill:#fce7f3,stroke:#be185d,color:#831843;
+    classDef ops fill:#fef9c3,stroke:#a16207,color:#713f12;
+
+    class browser,devices,cameras client;
+    class nginx edge;
+    class auth_service,device_service,video_service,ai_service service;
+    class mediamtx media;
+    class emqx broker;
+    class postgres,snapshots data;
+    class llm external;
+    class maintenance ops;
+
+    style Clients fill:transparent,stroke:transparent;
+    style Edge fill:transparent,stroke:transparent;
+    style Services fill:transparent,stroke:transparent;
+    style Infra fill:transparent,stroke:transparent;
+    style Auth fill:transparent,stroke:transparent;
+    style Data fill:transparent,stroke:transparent;
+
+    %% Dashed, muted styling for the cross-cutting calls (nginx's two direct
+    %% media/static bypasses, ai-service's lateral calls to its sibling
+    %% services, and every service's background audit-log write to
+    %% auth-service) so they read as secondary paths instead of layout noise.
+    %% auth-service is its own column, after Services, since its three
+    %% incoming audit edges are what actually determine its rank - keeping it
+    %% inside the Services row was what caused the crossings in the last version.
+    linkStyle 5,6,13,15,21,22,23 stroke:#9ca3af,stroke-width:1px,stroke-dasharray:4 3;

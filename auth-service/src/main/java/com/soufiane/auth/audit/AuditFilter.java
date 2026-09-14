@@ -51,7 +51,7 @@ public class AuditFilter extends OncePerRequestFilter {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String actor = auth != null ? auth.getName() : null;
         String role = roleOf(auth);
-        // A service token is the stack talking to itself, not a person.
+        // A service token is the stack talking to itself, not a person
         if ("SERVICE".equals(role)) return;
 
         int status = response.getStatus();
@@ -61,7 +61,7 @@ public class AuditFilter extends OncePerRequestFilter {
                 path, status, AuditRules.outcome(status), clientIp(request)));
     }
 
-    // public so AuthController can reuse them for the explicit login / logout rows.
+    // public so AuthController can reuse them for the explicit login / logout rows
     public static String roleOf(Authentication auth) {
         if (auth == null) return null;
         return auth.getAuthorities().stream().findFirst()
