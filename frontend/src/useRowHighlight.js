@@ -5,10 +5,9 @@ import { useRoute } from 'vue-router'
  * Reads ?highlight=<id> from the route and briefly flashes the row whose
  * element id is `${prefix}${id}`, scrolling it into view. The flash fades on
  * its own (the .row-flash CSS animation), and the flag is cleared after
- * `durationMs` so re-visiting the same id flashes it again.
- *
+ * `durationMs` so re-visiting the same id flashes it again
  * A transient "here's the one you came here for" cue from the dashboard's
- * Watch / Detect buttons, nothing sticky or selectable.
+ * Watch / Detect buttons, nothing sticky or selectable
  */
 export function useRowHighlight(prefix, durationMs = 4000) {
   const route = useRoute()

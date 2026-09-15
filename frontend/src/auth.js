@@ -39,9 +39,8 @@ export function getToken() {
   return session.value?.token || null
 }
 
-// This is a UI convenience only, hiding a button someone can't use. The
-// backend enforces the actual rule on every request regardless of what the
-// frontend shows or hides.
+// This is a UI convenience only, hiding a button someone can't use. The backend enforces the actual rule on every request regardless of what the
+// frontend shows or hides
 export const canWrite = computed(() => {
   const role = session.value?.role
   return role === 'ADMIN' || role === 'OPERATOR'

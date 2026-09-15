@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { session, isAdmin } from './auth'
 
 // Lazy-loaded so the initial bundle stays small; chat especially is only
-// opened occasionally.
+// opened occasionally
 const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/login', component: () => import('./views/LoginView.vue'), meta: { public: true } },
@@ -20,12 +20,12 @@ const routes = [
 ]
 
 // createWebHistory, not hash mode: nginx needs `try_files $uri /index.html`
-// or a refresh on /alerts would 404.
+// or a refresh on /alerts would 404
 export const router = createRouter({ history: createWebHistory(), routes })
 
 // Every route needs a session except /login itself, bounced back with
-// ?redirect= so login lands on whatever page was actually requested. The
-// backend is still the real gate, this only saves a round trip to find out.
+// ?redirect= so login lands on whatever page was actually requested.
+// Thebackend is still the real gate, this only saves a round trip to find out\
 router.beforeEach((to) => {
   const authed = !!session.value
   if (!to.meta.public && !authed) {
@@ -35,8 +35,7 @@ router.beforeEach((to) => {
     return '/dashboard'
   }
   // Same reasoning: the nav link is hidden for non-admins anyway, this just
-  // covers someone typing the URL directly. /api/auth/users itself is the
-  // real gate.
+  // covers someone typing the URL directly. /api/auth/users itself is thereal gate
   if (to.meta.adminOnly && !isAdmin.value) {
     return '/dashboard'
   }

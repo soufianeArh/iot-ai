@@ -1,9 +1,6 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
-/**
- * Run `load` now and every `ms`, and clear the timer on unmount so switching
- * pages doesn't leave old polls running in the background.
- */
+
 export function usePoll(load, ms = 5000) {
   const error = ref('')
   const loading = ref(true)
@@ -29,7 +26,7 @@ export function usePoll(load, ms = 5000) {
   return { error, loading, refresh: run }
 }
 
-/** Short local time, or a dash. Locale-aware, but always Western digits. */
+/** Short local time, or a dash. Locale-aware, but always Western digits */
 export function fmtTime(value, locale = 'en') {
   if (!value) return '—'
   const d = new Date(value)
