@@ -72,25 +72,27 @@ async function onLogout() {
 
       <div class="sidebar-spacer"></div>
 
-      <div v-if="session" class="user-box">
-        <RouterLink to="/profile" class="profile-chip" :title="t('profile.title')">
-          <svg class="user-icon" viewBox="0 0 24 24" width="15" height="15" fill="none"
-               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="8" r="4"/>
-            <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>
-          </svg>
-          <span class="user-name">{{ session.displayName }}</span>
-          <span class="pill role-badge">{{ roleLabel(session.role) }}</span>
-        </RouterLink>
-        <button class="ghost" type="button" @click="onLogout">{{ t('auth.signOut') }}</button>
-      </div>
+      <div class="sidebar-footer">
+        <div v-if="session" class="user-box">
+          <RouterLink to="/profile" class="profile-chip" :title="t('profile.title')">
+            <svg class="user-icon" viewBox="0 0 24 24" width="15" height="15" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/>
+            </svg>
+            <span class="user-name">{{ session.displayName }}</span>
+            <span class="pill role-badge">{{ roleLabel(session.role) }}</span>
+          </RouterLink>
+          <button class="ghost" type="button" @click="onLogout">{{ t('auth.signOut') }}</button>
+        </div>
 
-      <label class="lang">
-        <span class="visually-hidden">{{ t('app.language') }}</span>
-        <select :value="locale" @change="onLocaleChange">
-          <option v-for="l in LOCALES" :key="l.code" :value="l.code">{{ l.label }}</option>
-        </select>
-      </label>
+        <label class="lang">
+          <span class="visually-hidden">{{ t('app.language') }}</span>
+          <select :value="locale" @change="onLocaleChange">
+            <option v-for="l in LOCALES" :key="l.code" :value="l.code">{{ l.label }}</option>
+          </select>
+        </label>
+      </div>
     </aside>
 
     <!-- Fixed, not part of the sidebar: it has to still be reachable once
@@ -134,22 +136,28 @@ async function onLogout() {
 }
 .sidebar-reopen:hover { background: var(--brand-700); }
 
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+  padding: .8rem var(--gap) 0;
+  margin-top: .4rem;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+}
+
 .lang select {
-  width: auto;
+  width: 100%;
   background: rgba(255, 255, 255, .12);
   color: #fff;
   border-color: rgba(255, 255, 255, .25);
-  margin: 0 var(--gap);
 }
 .lang select option { color: #16202c; }
 
 .user-box {
   color: #cfe0f5;
   font-size: .85rem;
-  padding: 0 var(--gap);
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: .4rem;
 }
 
@@ -159,7 +167,6 @@ async function onLogout() {
   display: flex;
   align-items: center;
   gap: .4rem;
-  max-width: 100%;
   padding: .35rem .55rem;
   border: 1px solid rgba(255, 255, 255, .22);
   border-radius: var(--radius);
@@ -174,9 +181,11 @@ async function onLogout() {
 .user-icon { flex-shrink: 0; opacity: .85; }
 
 .user-box .ghost {
+  width: 100%;
+  text-align: center;
   border-color: rgba(255, 255, 255, .35);
   color: #fff;
-  padding: .3rem .6rem;
+  padding: .35rem .6rem;
 }
 .user-box .ghost:hover { background: rgba(255, 255, 255, .12); }
 
