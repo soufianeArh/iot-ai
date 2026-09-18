@@ -1,8 +1,42 @@
 # MQ-AI
 
-An IoT and video-analytics platform: register sensors and cameras, run YOLO-based detection on camera feeds, raise alerts on detections or sensor thresholds, and ask an LLM chat assistant questions about any of it. Three services (Java device registry, Python camera/video registry, Python AI inference and alerting) sit behind one nginx entrypoint, backed by a single Postgres instance and MQTT/MediaMTX for the device and video data planes.
+An IoT and video-analytics platform: register sensors and cameras, run YOLO-based detection on camera feeds, raise alerts on detections or sensor thresholds, and ask an LLM chat assistant questions about any of it. Accounts are role-based (admin / operator / viewer), and every write anywhere in the platform is recorded in an audit log. Four services (Java auth and identity, Java device registry, Python camera/video registry, Python AI inference and alerting) sit behind one nginx entrypoint, backed by a single Postgres instance and MQTT/MediaMTX for the device and video data planes.
+
+![Platform architecture](docs/architecture-v2.1.png)
 
 ## How to Use
+
+### Dashboard
+
+**1. Platform overview**
+
+A quick read on the whole platform: how many devices are online, how many cameras are reachable, how many detection tasks are running, and how many models are available.
+
+![Platform overview](docs/screenshots/en/auth/dashboard-platform.png)
+
+**2. Zones at a glance**
+
+One card per zone, showing how many of its devices are online and its worst open alert, if it has one. Click a zone card to jump to its devices on the Devices page.
+
+![Zones overview](docs/screenshots/en/auth/dashboard-zones.png)
+
+**3. Camera snapshots**
+
+Each camera shows its most recent frame, its reachability, and an open alert badge if it has one. Watch or Detect jump straight to that camera on the Cameras or Detections page.
+
+![Camera snapshots](docs/screenshots/en/auth/dashboard-camera.png)
+
+**4. Device readings**
+
+Each device shows its most recently reported property and an open alert badge if it has one. Click a device card to jump to it on the Devices page.
+
+![Device readings](docs/screenshots/en/auth/dashboard-device.png)
+
+**5. Alerts overview**
+
+Counts of open alerts by severity, plus a table of the most recent alerts across the whole platform.
+
+![Alerts overview](docs/screenshots/en/auth/dashboard-alert.png)
 
 ### Devices
 
@@ -35,6 +69,22 @@ Pick a property and a time window (last hour / last day) to see it plotted over 
 If MQTT traffic arrives from a device code / product key nobody registered, it shows up here with a hit count and last-seen time: usually a firmware typo or a device you forgot to add.
 
 ![Unregistered devices table](docs/screenshots/en/devices-unregistered.png)
+
+### Zones
+
+Visible only to admins, for grouping devices. A device belongs to at most one zone.
+
+**1. Add a zone**
+
+Give it a name and an optional description, then submit.
+
+![Add zone form](docs/screenshots/en/auth/add-zone.png)
+
+**2. Manage zones**
+
+The table lists every zone with its device count. Click a row to jump to its devices on the Devices page. Edit or delete a zone from the row's actions. Deleting one asks for confirmation and shows how many devices it holds.
+
+![Zones table](docs/screenshots/en/auth/list-zones.png)
 
 ### Cameras
 
@@ -136,17 +186,60 @@ Each answer shows which tool calls it made to get its data, so you can see where
 
 > If an answer takes too long or times out, try stopping running detection tasks (see the Detections page) and ask again. Chat and detection (YOLO) share the same CPU, so a busy detection task can slow the chatbot down or make it time out.
 
+### Account
+
+**1. Log in**
+
+Sign in with a username and password. A wrong login gets a plain error, nothing that hints at which field was wrong.
+
+![Login page](docs/screenshots/en/auth/login.png)
+
+**2. View your profile**
+
+Your username, role, and account creation date, plus a display name you can change. Username and role are read only here, only an admin can change a role.
+
+![Profile identity fields](docs/screenshots/en/auth/profile-part-1.png)
+
+**3. Change your password**
+
+Enter your current password once, then a new one twice. Nothing saves unless something actually changed.
+
+![Change password form](docs/screenshots/en/auth/profile-part-2.png)
+
+### Administration
+
+Visible only to admins.
+
+**1. Add a user**
+
+Set a username, password, display name, and role (admin, operator, or viewer).
+
+![Add user form](docs/screenshots/en/auth/add-user.png)
+
+**2. Manage users**
+
+The table lists every account. Change a user's role from its dropdown, reset a password by typing a new one and saving, or delete the account.
+
+![Users table](docs/screenshots/en/auth/manage-users.png)
+
+**3. Review the activity log**
+
+Every create, update, delete, acknowledge, login, and logout across the platform, who did it, and whether it succeeded. Filter by actor, action, or resource, and click a row to expand it for the request's method, path, and status. Reset clears the current filter.
+
+![Activity log](docs/screenshots/en/auth/logs.png)
+
 ## Architecture
 
-One nginx entrypoint in front of three independent services, each owning its own Postgres schema and talking to the others only over HTTP, never touching another's tables directly. One MQTT broker for devices, one media server (MediaMTX) for cameras, and ai-service running both YOLO-based detection and an LLM chat assistant on top of everything else.
+One nginx entrypoint in front of four independent services, each owning its own Postgres schema and talking to the others only over HTTP, never touching another's tables directly. One MQTT broker for devices, one media server (MediaMTX) for cameras, auth-service issuing and everyone else verifying the JWTs that carry a user's role, and ai-service running both YOLO-based detection and an LLM chat assistant on top of everything else.
 
-![Platform architecture](docs/architecture-v1.1.png)
+![Platform architecture](docs/architecture-v2.1.png)
 
 - **Device data**: device to EMQX to device-service to Postgres.
 - **Video**: camera to MediaMTX, which serves the live stream straight to the browser (HLS/WebRTC) and separately feeds raw frames to ai-service.
 - **Detection**: ai-service pulls frames from MediaMTX and runs them through YOLO and other models (fire, plant disease) to produce detections and annotated snapshots.
 - **Alerts**: a detection or a device reading is checked against the rules in ai-service, which raises an Alert if one matches.
 - **Chat**: ai-service also runs an LLM-based assistant that answers questions using live platform data, fetched through the same tool calls a human could trigger from the UI.
+- **Auth & audit**: auth-service issues a JWT on login. Every other service verifies it locally against the same shared secret rather than calling back per request, and reports every write it handles to auth-service's audit log.
 - The stack also ships with a sample device and a sample camera, so you can try the whole platform right away without connecting real hardware.
 
 ## Technical
@@ -337,14 +430,68 @@ Three tables:
 - `ai.alert` itself is never deleted by retention. Alerts are kept forever at this stage, since they're the curated output a human should see, not raw data
 - **`backup.py`**: backs up both the database (`pg_dump`, `ai` schema included like everything else) and the snapshot images separately, since `pg_dump` doesn't know `/snapshots` exists. Same daily/weekly/monthly rotation as the other services, kept independent from retention.py on purpose
 
+### auth-service
+
+**What it does**
+
+Owns accounts, login, and the platform's audit trail.
+
+- Issues a JWT on successful login, carrying the user's role. Every other service verifies that token locally against the same shared secret, instead of calling back here per request.
+- Login and logout are logged explicitly by the controller itself, since there is no security context yet at login time, and a failed attempt still needs the username that was tried.
+- Every other mutating request, in any service, is logged automatically by a generic filter declared once per service, with no attention needed per route.
+- Enforces a "last admin" rule: a role change or delete that would leave zero admins is rejected.
+
+**REST API**
+
+Auth (`/api/auth`):
+- `POST /login`: verify credentials, issue a JWT
+- `POST /logout`: nothing to invalidate server side, the token is stateless. Gives the frontend a clean endpoint to call and logs the event
+- `GET /me` · `PUT /me`: read or update your own profile (display name, password). Username and role aren't editable here
+
+Users (`/api/auth/users`, ADMIN only):
+- `GET /` list · `POST /` create · `PUT /{id}` update (role, display name, or reset a password) · `DELETE /{id}`
+- Update and delete both refuse to remove the last remaining admin
+
+Audit:
+- `POST /internal/audit`: other services report their own mutating requests here, SERVICE role only
+- `GET /api/auth/audit`: the admin log view, filterable by actor, action, resource, and time. ADMIN only
+
+**Compose config**
+
+- `build: context: ../auth-service`: built from the local Dockerfile, not a prebuilt image
+- `restart: always`, `runtime: runc`: same reasoning as the other services
+- `depends_on`: PostgreSQL only (`condition: service_healthy`)
+- `expose: 8080` only: no host port, reachable solely through nginx
+- Env vars: `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` (built from `POSTGRES_*`), `JWT_SECRET`, identical byte for byte to the copy every verifying service holds
+- Healthcheck: hits its own `/actuator/health` (15s interval, 5 retries, 60s start period)
+- `networks: easyaiot-network`
+
+**Connections**
+
+- **Every other service**: one direction only, they call auth-service's `/internal/audit` to report their own writes. auth-service never calls them
+- **PostgreSQL**: JDBC, own `auth` schema, Flyway managed, same convention as device-service's schema
+- **nginx**: the only inbound path, proxies `/api/auth/` to it
+
+**Database**
+
+Own schema, `auth` (Flyway managed, like device-service's `public` schema, unlike video-service's and ai-service's schemas, which are just created by `db.create_all()`). Four migrations so far.
+
+- **`app_user`**: `id, username (unique), password_hash, display_name, role, created_at`. Seeded with a first admin account on first boot, so there is always a way in
+- **`audit_log`**: one row per mutating request across the whole stack: `id, at, actor, actor_role, service, method, action, resource, resource_id, path, status, outcome, ip`
+
+**Ops rules that touch it**
+
+- **`backup.py`**: whole instance `pg_dump`, `auth` included automatically like every other schema
+- **`retention.py`** doesn't touch `auth` at all: accounts and audit rows aren't a time series a device or camera produces, and audit rows in particular are kept forever, same reasoning as `ai.alert`
+
 ## Limitations
 
 - **ai-service does three jobs at once**: inference, both kinds of alert rules, and the chat agent, all in one Flask process. Splitting it (inference / alerting / chat) would let each scale and fail independently, at the cost of needing a shared way to reach the `ai` schema or rule state across services.
 - **CPU-only, single host, tightly rationed**: no GPU anywhere in the stack. `TORCH_THREADS=2`, a 4-of-8 CPU cap on ai-service, and a 2-core cap on Ollama are all explicit in the compose file. The code itself documents that chat and YOLO inference compete for the same cores.
 - **Services call each other synchronously over HTTP instead of an event bus**: ai-service blocks on video-service to look up a camera, and polls device-service every 15s for device rules instead of reacting to readings as they arrive. This was a deliberate simplicity choice (documented in `device_monitor.py`), but it does mean added latency and a hard dependency on the other service being up right now, something Kafka or another broker would remove.
 - **Local LLM quality is capped by host RAM**: 8GB isn't enough to run a strong model locally alongside the rest of the stack, so decent chat quality means depending on a hosted API (Groq), with its own rate limits (8k tokens/minute on the free tier).
-- **No auth between internal services**: nginx enforces basic auth from the outside, but ai-service, video-service, and device-service accept requests from each other, or anyone on the compose network, with no credentials at all.
-- **Two of three schemas have no real migrations**: `video` and `ai` are created with `db.create_all()`, not Flyway/Alembic. The code's own docstring in `run.py` flags this as "not a substitute for migrations."
+- **Internal service identity is a shared secret, not real service to service auth**: any of the four services can mint a SERVICE role token claiming to be any other, since they all hold the same `JWT_SECRET` and nothing verifies which service actually sent it. A compromised service could call another, or write to the audit log, pretending to be a different one.
+- **Two of four schemas have no real migrations**: `video` and `ai` are created with `db.create_all()`, not Flyway/Alembic. The code's own docstring in `run.py` flags this as "not a substitute for migrations."
 - **Backups aren't off-site**: `backup.py` writes to a local `/backups` volume on the same host as the live database. A full disk or host failure takes out the data and its backup together.
 - **Task and cooldown state live in memory, per instance**: running more than one ai-service replica would fragment both the task registry and the alert cooldown cache, so it cannot be horizontally scaled as it stands.
 - **No cap on concurrent detection tasks**: nothing stops starting analysis on every camera at once; the CPU ceiling is shared and fixed, so doing that just slows every running task down rather than rejecting the request.

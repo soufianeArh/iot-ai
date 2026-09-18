@@ -1,8 +1,42 @@
  # MQ-AI
 
-物联网与视频分析平台：注册传感器和摄像头，对摄像头画面运行基于 YOLO 的检测，根据检测结果或传感器阈值发出告警，并可以向 LLM 聊天助手询问以上任何信息。三个服务（Java 设备注册中心、Python 摄像头/视频注册中心、Python AI 推理与告警服务）位于同一个 nginx 入口之后，由单个 Postgres 实例，以及负责设备与视频数据通路的 MQTT/MediaMTX 提供支撑。
+物联网与视频分析平台：注册传感器和摄像头，对摄像头画面运行基于 YOLO 的检测，根据检测结果或传感器阈值发出告警，并可以向 LLM 聊天助手询问以上任何信息。账户按角色划分（管理员/操作员/只读用户），平台中的每一次写操作都会被记录进操作日志。四个服务（Java 账户与身份认证服务、Java 设备注册中心、Python 摄像头/视频注册中心、Python AI 推理与告警服务）位于同一个 nginx 入口之后，由单个 Postgres 实例，以及负责设备与视频数据通路的 MQTT/MediaMTX 提供支撑。
+
+![平台架构](docs/architecture-v2.1.png)
 
 ## 使用指南
+
+### 仪表盘
+
+**1. 平台概览**
+
+一眼看清整个平台的情况：多少设备在线、多少摄像头可访问、多少检测任务正在运行，以及有多少可用模型。
+
+![平台概览](docs/screenshots/zh/auth/dashboard-platform.png)
+
+**2. 区域概览**
+
+每个区域一张卡片，显示其设备的在线数量，以及最严重的未处理告警（如果有）。点击某个区域卡片可跳转到"设备"页面并按该区域过滤。
+
+![区域概览](docs/screenshots/zh/auth/dashboard-zones.png)
+
+**3. 摄像头快照**
+
+每个摄像头显示最近一帧画面、其可达状态，以及未处理告警徽章（如果有）。点击"观看"或"检测"可直接跳转到"摄像头"或"检测"页面并定位到该摄像头。
+
+![摄像头快照](docs/screenshots/zh/auth/dashboard-camera.png)
+
+**4. 设备读数**
+
+每个设备显示最近上报的属性，以及未处理告警徽章（如果有）。点击设备卡片可跳转到"设备"页面并定位到该设备。
+
+![设备读数](docs/screenshots/zh/auth/dashboard-device.png)
+
+**5. 告警概览**
+
+按严重级别统计未处理告警数量，并列出整个平台最近的告警记录。
+
+![告警概览](docs/screenshots/zh/auth/dashboard-alert.png)
 
 ### 设备
 
@@ -35,6 +69,22 @@
 如果有 MQTT 流量来自尚未注册的设备编码/产品密钥组合，会在此处显示出来，附带命中次数和最后出现时间，通常意味着固件里的拼写错误，或是你忘了添加的设备。
 
 ![未注册设备表格](docs/screenshots/zh/devices-unregistered.png)
+
+### 区域
+
+仅管理员可见，用于给设备分组。一台设备最多只属于一个区域。
+
+**1. 添加区域**
+
+填写名称和可选的描述，然后提交。
+
+![添加区域表单](docs/screenshots/zh/auth/add-zone.png)
+
+**2. 管理区域**
+
+表格列出每个区域及其设备数量。点击某一行可跳转到"设备"页面查看该区域下的设备。可以在行内编辑或删除某个区域，删除时会要求确认，并显示该区域下有多少台设备。
+
+![区域表格](docs/screenshots/zh/auth/list-zones.png)
 
 ### 摄像头
 
@@ -136,17 +186,60 @@
 
 > 如果回答耗时过长或超时，可以尝试先停止正在运行的检测任务（参见"检测"页面），再重新提问。聊天和检测（YOLO）共用同一份 CPU，检测任务繁忙时可能会拖慢聊天助手，甚至导致超时。
 
+### 账户
+
+**1. 登录**
+
+使用用户名和密码登录。登录信息有误时只会显示一条通用错误提示，不会暗示到底是哪个字段错了。
+
+![登录页面](docs/screenshots/zh/auth/login.png)
+
+**2. 查看个人资料**
+
+显示你的用户名、角色和账户创建时间，以及可以修改的显示名称。用户名和角色在这里都是只读的，只有管理员才能修改角色。
+
+![个人资料字段](docs/screenshots/zh/auth/profile-part-1.png)
+
+**3. 修改密码**
+
+输入一次当前密码，再输入两次新密码。只要没有任何实际改动，就不会提交保存。
+
+![修改密码表单](docs/screenshots/zh/auth/profile-part-2.png)
+
+### 管理
+
+仅管理员可见。
+
+**1. 添加用户**
+
+设置用户名、密码、显示名称和角色（管理员、操作员或只读用户）。
+
+![添加用户表单](docs/screenshots/zh/auth/add-user.png)
+
+**2. 管理用户**
+
+表格列出所有账户。可以通过下拉框修改某个用户的角色，输入新密码并保存来重置密码，或者删除该账户。
+
+![用户表格](docs/screenshots/zh/auth/manage-users.png)
+
+**3. 查看操作日志**
+
+记录平台上的每一次创建、更新、删除、确认、登录和退出登录操作：谁做的，以及是否成功。可以按操作人、操作类型或资源类型过滤，点击某一行可展开查看该请求的方法、路径和状态码。"重置"会清除当前的过滤条件。
+
+![操作日志](docs/screenshots/zh/auth/logs.png)
+
 ## 架构
 
-一个 nginx 入口位于三个独立服务之前，每个服务拥有自己的 Postgres schema，彼此之间只通过 HTTP 通信，从不直接访问对方的数据表。设备使用一个 MQTT broker，摄像头使用一个媒体服务器（MediaMTX），ai-service 则同时负责基于 YOLO 的检测和 LLM 聊天助手。
+一个 nginx 入口位于四个独立服务之前，每个服务拥有自己的 Postgres schema，彼此之间只通过 HTTP 通信，从不直接访问对方的数据表。设备使用一个 MQTT broker，摄像头使用一个媒体服务器（MediaMTX），auth-service 负责签发 JWT，其余服务都在本地校验这份携带用户角色的 JWT，ai-service 则同时负责基于 YOLO 的检测和 LLM 聊天助手。
 
-![平台架构](docs/architecture-v1.1.png)
+![平台架构](docs/architecture-v2.1.png)
 
 - **设备数据**：设备 → EMQX → device-service → Postgres。
 - **视频**：摄像头 → MediaMTX，画面一分为二，一路直接推送到浏览器供实时观看（HLS/WebRTC），另一路把原始帧交给 ai-service。
 - **检测**：ai-service 从 MediaMTX 拉取帧，送入 YOLO 及其他模型（火焰、植物病害）进行推理，生成检测记录和标注快照。
 - **告警**：一次检测或一条设备读数会与 ai-service 中的规则进行比对，命中则产生一条告警。
 - **聊天**：ai-service 还运行一个基于 LLM 的助手，通过与 UI 上人工触发的相同工具调用来获取实时平台数据，从而回答问题。
+- **认证与审计**：auth-service 在登录时签发一个 JWT。其余每个服务都在本地用同一份共享密钥校验这个 JWT，而不是每次请求都回调这里确认，并且会把自己处理的每一次写操作上报给 auth-service 的操作日志。
 - 整套系统还内置了一个示例设备和一个示例摄像头，无需接入真实硬件即可立即体验整个平台。
 
 ## 技术细节
@@ -337,14 +430,68 @@ REST API（`/video/camera`）：
 - `ai.alert` 本身从不被 retention 清理。告警会在这个阶段被永久保留，因为它们是应该展示给人看的经过筛选的输出，而不是原始数据
 - **`backup.py`**：同时备份数据库（`pg_dump`，`ai` schema 和其他所有内容一样被整体包含）以及快照图片本身，因为 `pg_dump` 并不知道 `/snapshots` 目录的存在。与其他服务采用相同的每日/每周/每月轮转策略，并有意与 retention.py 保持独立
 
+### auth-service
+
+**功能说明**
+
+负责账户、登录，以及整个平台的操作日志。
+
+- 登录成功后签发一个携带用户角色的 JWT。其余每个服务都在本地用同一份共享密钥校验这个 JWT，而不是每次请求都回调这里
+- 登录和退出登录由控制器自身显式记录，因为登录时还没有安全上下文，而且登录失败时也需要记录当时输入的用户名
+- 其他任何服务里的写操作都会被一个每个服务只声明一次的通用过滤器自动记录，不需要针对每个接口单独处理
+- 强制执行"最后一个管理员"规则：如果一次角色变更或删除会导致系统里一个管理员都不剩，该操作会被拒绝
+
+**REST API**
+
+账户（`/api/auth`）：
+- `POST /login`：校验凭证，签发 JWT
+- `POST /logout`：没有任何服务端状态需要失效，因为令牌本身是无状态的。只是给前端一个明确的退出接口可以调用，并记录这次退出事件
+- `GET /me` · `PUT /me`：读取或更新自己的个人资料（显示名称、密码）。用户名和角色都不能在这里修改
+
+用户（`/api/auth/users`，仅管理员）：
+- `GET /` 列表 · `POST /` 创建 · `PUT /{id}` 更新（角色、显示名称，或重置密码） · `DELETE /{id}`
+- 更新和删除都会拒绝移除最后一个剩余的管理员
+
+审计：
+- `POST /internal/audit`：其他服务在这里上报自己的写操作，仅限 SERVICE 角色
+- `GET /api/auth/audit`：管理员查看的操作日志界面，可按操作人、操作类型、资源类型和时间过滤。仅限管理员
+
+**Compose 配置**
+
+- `build: context: ../auth-service`：从本地 Dockerfile 构建，而非预构建镜像
+- `restart: always`、`runtime: runc`：与其他服务原因相同
+- `depends_on`：仅 PostgreSQL（`condition: service_healthy`）
+- 仅 `expose: 8080`：不映射宿主机端口，只能通过 nginx 访问
+- 环境变量：`SPRING_DATASOURCE_URL/USERNAME/PASSWORD`（由 `POSTGRES_*` 拼接而成）、`JWT_SECRET`，与每个负责校验令牌的服务持有的副本逐字节一致
+- 健康检查：访问自身的 `/actuator/health`（15 秒间隔，5 次重试，60 秒启动期）
+- `networks: easyaiot-network`
+
+**服务连接**
+
+- **其他每个服务**：只有一个方向，它们调用 auth-service 的 `/internal/audit` 上报自己的写操作。auth-service 从不主动调用它们
+- **PostgreSQL**：JDBC，拥有独立的 `auth` schema，由 Flyway 管理，与 device-service 的 schema 采用相同的约定
+- **nginx**：唯一的入站路径，将 `/api/auth/` 代理到它
+
+**数据库**
+
+拥有独立 schema：`auth`（由 Flyway 管理，与 device-service 的 `public` schema 一样，不同于 video-service 和 ai-service 的 schema，它们只是通过 `db.create_all()` 创建的）。目前有四个迁移。
+
+- **`app_user`**：`id, username (unique), password_hash, display_name, role, created_at`。首次启动时会预置一个管理员账户，确保始终有办法登录进去
+- **`audit_log`**：整个技术栈中每一次写操作对应一行记录：`id, at, actor, actor_role, service, method, action, resource, resource_id, path, status, outcome, ip`
+
+**相关运维规则**
+
+- **`backup.py`**：整实例级别的 `pg_dump`，`auth` 会像其他所有 schema 一样被自动包含
+- **`retention.py`** 完全不涉及 `auth`：账户和操作日志都不是设备或摄像头产生的时间序列数据，操作日志尤其会被永久保留，理由与 `ai.alert` 相同
+
 ## 局限性
 
 - **ai-service 一次承担三份工作**：推理、两种类型的告警规则，以及聊天代理，全部运行在同一个 Flask 进程里。拆分开（推理 / 告警 / 聊天）可以让每部分独立伸缩、独立发生故障，代价是需要一种跨服务共享访问 `ai` schema 或规则状态的方式。
 - **仅支持 CPU，单机部署，资源配额紧张**：整个技术栈中没有任何 GPU。`TORCH_THREADS=2`、ai-service 8 核中占 4 核的上限，以及 Ollama 的 2 核上限，都在 compose 文件中被显式写明。代码本身也记录了聊天和 YOLO 推理会争抢同样的 CPU 核心。
 - **服务之间通过同步 HTTP 相互调用，而不是事件总线**：ai-service 在查找摄像头时会阻塞等待 video-service 的响应，并且每 15 秒轮询一次 device-service 获取设备规则，而不是在读数到达时立刻响应。这是一个有意为之的简化选择（在 `device_monitor.py` 中有说明），但代价是增加了延迟，并且对另一个服务当下是否在线产生了硬依赖，如果引入 Kafka 之类的消息队列则可以消除这种依赖。
 - **本地 LLM 的质量受限于主机内存**：8GB 内存不足以在运行整套系统的同时本地跑一个足够强的模型，因此要获得不错的聊天质量就必须依赖托管 API（Groq），而这又带来了它自身的速率限制（免费额度为每分钟 8000 个 token）。
-- **内部服务之间没有身份验证**：nginx 对外部请求强制要求 Basic Auth，但 ai-service、video-service 和 device-service 彼此之间的请求，或来自 compose 网络内任何主机的请求，完全不需要任何凭证。
-- **三个 schema 中有两个没有正式的迁移机制**：`video` 和 `ai` 都是用 `db.create_all()` 创建的，而不是 Flyway/Alembic。`run.py` 自身的文档字符串就写明这"不能替代迁移工具"。
+- **内部服务身份依赖共享密钥，而非真正的服务间身份验证**：四个服务中的任何一个都可以伪造一个 SERVICE 角色的令牌，冒充其他任意服务，因为它们持有的是完全相同的 `JWT_SECRET`，没有任何机制能验证请求究竟来自哪个服务。一旦某个服务被攻破，就可以冒充另一个服务去调用别的服务，或者向操作日志写入伪造记录。
+- **四个 schema 中有两个没有正式的迁移机制**：`video` 和 `ai` 都是用 `db.create_all()` 创建的，而不是 Flyway/Alembic。`run.py` 自身的文档字符串就写明这"不能替代迁移工具"。
 - **备份没有异地存放**：`backup.py` 把备份写入与实时数据库同一台主机上的本地 `/backups` 数据卷。一旦整台主机的磁盘或主机本身出现故障，数据和它的备份会一起丢失。
 - **任务和冷却状态都只存在于单个实例的内存中**：如果运行多个 ai-service 副本，任务注册表和告警冷却缓存都会被分散到各个副本中，因此目前这套系统无法做水平扩展。
 - **对并发检测任务的数量没有任何限制**：没有任何机制阻止同时对所有摄像头启动分析任务；CPU 上限是共享且固定的，这样做只会拖慢所有正在运行的任务，而不会拒绝请求。
